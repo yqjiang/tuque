@@ -163,7 +163,7 @@ abstract class HttpConnection {
    *   * $return['headers'] = The HTTP headers of the reply
    *   * $return['content'] = The body of the HTTP reply
    */
-  abstract public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL);
+  abstract public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL, $options = array());
 
   /**
    * Do a patch request, used for partial updates of a resource
@@ -230,7 +230,7 @@ abstract class HttpConnection {
    *   * $return['headers'] = The HTTP headers of the reply
    *   * $return['content'] = The body of the HTTP reply
    */
-  abstract public function putRequest($url, $type = 'none', $file = NULL);
+  abstract public function putRequest($url, $type = 'none', $file = NULL, $options = array());
 
   /**
    * Send a HTTP DELETE request to URL.
@@ -491,10 +491,13 @@ class CurlConnection extends HttpConnection {
   /**
    * @see HttpConnection::postRequest
    */
-  public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL) {
+  public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL, $options = array()) {
     $this->setupCurlContext($url);
     curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
     curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
+    if (isset($options['headers'])) {
+      curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $options['headers']);
+    }
 
     switch (strtolower($type)) {
       case 'string':
@@ -503,6 +506,9 @@ class CurlConnection extends HttpConnection {
         }
         else {
           $headers = array("Content-Type: text/plain");
+        }
+        if (isset($options['headers'])) {
+          $headers = array_merge($headers, $options['headers']);
         }
         curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
         curl_setopt(self::$curlContext, CURLOPT_POSTFIELDS, $data);
@@ -551,9 +557,12 @@ class CurlConnection extends HttpConnection {
   /**
    * @see HttpConnection::putRequest
    */
-  function putRequest($url, $type = 'none', $file = NULL) {
+  function putRequest($url, $type = 'none', $file = NULL, $options = array()) {
     $this->setupCurlContext($url);
     curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'PUT');
+    if (isset($options['headers'])) {
+      curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $options['headers']);
+    }
     switch (strtolower($type)) {
       case 'string':
         $fh = fopen('php://memory', 'rw');

@@ -143,7 +143,7 @@ class FedoraApiA {
    * Authenticate and provide basic information about a user's
    * fedora attributes. Please note that calling this method
    * with an unauthenticated (i.e. anonymous) user will throw
-   * an 'HttpConnectionException' with the message 'Unauthorized'. 
+   * an 'HttpConnectionException' with the message 'Unauthorized'.
    *
    * @return array()
    *    Returns an array containing user attributes (i.e. fedoraRole).
@@ -336,11 +336,8 @@ class FedoraApiA {
     $pid = urlencode($pid);
     $dsid = urlencode($dsid);
     $seperator = '?';
-
     $request = "/objects/$pid/datastreams/$dsid/content";
-
     $this->connection->addParam($request, $seperator, 'asOfDateTime', $as_of_date_time);
-
     $response = $this->connection->getRequest($request, array('file' => $file));
     $response = $this->serializer->getDatastreamDissemination($response, $file);
     return $response;

@@ -52,7 +52,7 @@ class RepositoryConnection extends CurlConnection {
   /**
    * This private function makes a fedora URL from a noraml URL.
    */
-  protected function buildUrl($url) {
+  public function buildUrl($url) {
     $url = ltrim($url, "/");
     return "{$this->url}/$url";
   }
@@ -123,9 +123,9 @@ class RepositoryConnection extends CurlConnection {
   /**
    * @see CurlConnection::postRequest()
    */
-  public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL) {
+  public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL, $options = array()) {
     try {
-      return parent::postRequest($this->buildUrl($url), $type, $data, $content_type);
+      return parent::postRequest($this->buildUrl($url), $type, $data, $content_type, $options);
     }
     catch (HttpConnectionException $e) {
       $this->parseFedoraExceptions($e);
@@ -147,9 +147,9 @@ class RepositoryConnection extends CurlConnection {
   /**
    * @see CurlConnection::putRequest()
    */
-  public function putRequest($url, $type = 'none', $file = NULL) {
+  public function putRequest($url, $type = 'none', $file = NULL, $options = array()) {
     try {
-      return parent::putRequest($this->buildUrl($url), $type, $file);
+      return parent::putRequest($this->buildUrl($url), $type, $file, $options);
     }
     catch (HttpConnectionException $e) {
       $this->parseFedoraExceptions($e);

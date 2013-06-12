@@ -8,8 +8,10 @@ require_once 'implementations/fedora3/Object.php';
 require_once 'implementations/fedora3/RepositoryConnection.php';
 require_once 'implementations/fedora3/Repository.php';
 require_once 'implementations/fedora3/FedoraRelationships.php';
+
 // Fedora 4 includes.
 require_once 'implementations/fedora4/FedoraApi.php';
+require_once 'implementations/fedora4/FedoraApiSerializer.php';
 
 // Generic includes.
 include_once 'Cache.php';
@@ -28,7 +30,7 @@ class RepositoryFactory {
         if ($cache === NULL) {
           $cache = new SimpleCache();
         }
-        $api = new Fedora4Api(new RepositoryConnection($config), new FedoraApiSerializer());
+        $api = new Fedora4Api(new RepositoryConnection($config), new Fedora4ApiSerializer());
         return new FedoraRepository($api, $cache);
       break;
       default:
