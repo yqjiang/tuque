@@ -267,6 +267,8 @@ class Fedora4ApiM  extends FedoraApiM {
     }
     $this->connection->addParamArray($request, $seperator, $params, 'checksumType');
     $this->connection->addParamArray($request, $seperator, $params, 'checksum');
+    $this->connection->addParam($request, $seperator, 'mixin', 'fedora:datastream');
+
     $response = $this->connection->postRequest($request, $type, $file, $params['mimeType']);
     // Second request to get info.
     return $this->getDatastream($pid, $dsid);
@@ -302,6 +304,7 @@ class Fedora4ApiM  extends FedoraApiM {
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $ds = $this->serializer->getNode($id, $response['content']);
+    dsm($ds, $id);
     return array(
       // Datastream Labels are not implemented yet.
       'dsLabel' => 'Default Label',
@@ -395,15 +398,7 @@ class Fedora4ApiM  extends FedoraApiM {
    *   - logMessage: is ignored.
    */
   public function ingest($params = array()) {
-    $pid = isset($params['pid']) ? urlencode($params['pid']) : '';
-    $pid = urlencode($pid);
-    // Create the object.
-    $request = "/{$pid}";
-    dsm($params);
-    dsm($request);
-    $response = $this->connection->postRequest($request);
-    dsm($response);
-    // Create datastreams.
+    // Process the parameters
     if (isset($params['string'])) {
       $foxml = new SimpleXMLElement($params['string']);
     }
@@ -412,7 +407,52 @@ class Fedora4ApiM  extends FedoraApiM {
     }
     if (isset($foxml)) {
       dsm($foxml->asXML());
+      $pid = (string) $foxml['PID'];
+      $datastreams = array();
+      $children = $foxml->children('foxml', TRUE);
+      $attribute = function(SimpleXMLElement $el, $attr) {
+        $results = $el->xpath("@{$attr}");
+        return (string) array_shift($results);
+      };
+      foreach ($children->datastream as $datastream) {
+        $dsid = $attribute($datastream, 'ID');
+        // Just grab the first version for now.
+        $version = $datastream->datastreamVersion[0];
+        $type = 'none';
+        $data = NULL;
+        if (isset($version->contentLocation)) {
+          $type = 'file';
+          $data = $attribute($version->contentLocation, 'REF');
+        }
+        elseif (isset($version->xmlContent)) {
+          $type = 'string';
+          $children = $version->xmlContent->xpath('*');
+          $data = (string) array_pop($children)->asXML();
+        }
+        $datastreams[$dsid] = array(
+          'mimeType' => $attribute($version, 'MIMETYPE'),
+          'type' => $type,
+          'data' => $data,
+        );
+      }
     }
+    else {
+      $pid = isset($params['pid']) ? $params['pid'] : '';
+    }
+    // Create the object.
+    $pid = urlencode($pid);
+    $request = empty($pid) ? "/fcr:new" : "/$pid";
+    $response = $this->connection->postRequest($request);
+    $pid = $response['content'];
+    // Create the datastreams.
+    foreach ($datastreams as $dsid => $ds) {
+      $params = array(
+        'mimeType' => $ds['mimeType'],
+      );
+      dsm($params, 'p');
+      $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $params);
+    }
+    return $response['content'];
   }
 
   /**
@@ -488,10 +528,15 @@ class Fedora4ApiM  extends FedoraApiM {
   }
 
   /**
-   * Not implemented.
+   * This is significantly different as it doesn't exist anymore.
+   *
+   * But to stub it we return a url to the file on disc so that we can use the
+   * same code.
    */
   public function upload($file) {
-    trigger_error("Deprecated function called.", E_USER_NOTICE);
+    $temp = tempnam(sys_get_temp_dir(), 'tuque');
+    copy($file, $temp);
+    return $temp;
   }
 
 }

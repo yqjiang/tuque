@@ -705,7 +705,6 @@ class FedoraApiM {
     $this->connection->addParamArray($request, $seperator, $params, 'checksum');
     $this->connection->addParamArray($request, $seperator, $params, 'mimeType');
     $this->connection->addParamArray($request, $seperator, $params, 'logMessage');
-
     $response = $this->connection->postRequest($request, $type, $file);
     $response = $this->serializer->addDatastream($response);
     return $response;
