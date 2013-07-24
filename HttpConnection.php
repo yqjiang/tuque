@@ -163,7 +163,7 @@ abstract class HttpConnection {
    *   * $return['headers'] = The HTTP headers of the reply
    *   * $return['content'] = The body of the HTTP reply
    */
-  abstract public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL);
+  abstract public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL, $options = array());
 
   /**
    * Do a patch request, used for partial updates of a resource
@@ -193,12 +193,13 @@ abstract class HttpConnection {
    * @param string $url
    *   The URL to post the request to. Should start with the
    *   protocol. For example: http://.
-   * @param boolean $headers_only
-   *   This will cause curl to only return the HTTP headers.
-   * @param string $file
-   *   A file to output the content of request to. If this is set then headers
-   *   are not returned and the 'content' and 'headers' keys of the return isn't
-   *   set.
+   * @param array $options
+   *   (Optional) An associative array that can contain the keys
+   *   - headers_only: Boolean. This will only return the HTTP headers.
+   *   - file: String. A file to output the content of request to. If this is
+   *     set then headers are not returned and the 'content' and 'headers'
+   *     keys of the return isn't set.
+   *   - headers: An array of headers to add to the requests.
    *
    * @throws HttpConnectionException
    *
@@ -208,7 +209,7 @@ abstract class HttpConnection {
    *   * $return['headers'] = The HTTP headers of the reply
    *   * $return['content'] = The body of the HTTP reply
    */
-  abstract public function getRequest($url, $headers_only = FALSE, $file = FALSE);
+  abstract public function getRequest($url, $options = array());
 
   /**
    * Send a HTTP PUT request to URL.
@@ -229,7 +230,7 @@ abstract class HttpConnection {
    *   * $return['headers'] = The HTTP headers of the reply
    *   * $return['content'] = The body of the HTTP reply
    */
-  abstract public function putRequest($url, $type = 'none', $file = NULL);
+  abstract public function putRequest($url, $type = 'none', $file = NULL, $options = array());
 
   /**
    * Send a HTTP DELETE request to URL.
@@ -391,7 +392,6 @@ class CurlConnection extends HttpConnection {
    */
   protected function doCurlRequest($file = NULL) {
     $curl_response = curl_exec(self::$curlContext);
-
     // Since we are using exceptions we trap curl error
     // codes and toss an exception, here is a good error
     // code reference.
@@ -403,7 +403,6 @@ class CurlConnection extends HttpConnection {
     }
 
     $info = curl_getinfo(self::$curlContext);
-
     $response = array();
     $response['status'] = $info['http_code'];
     if ($file == NULL) {
@@ -418,6 +417,8 @@ class CurlConnection extends HttpConnection {
       $http_error_string = substr($http_error_string[0], 13);
       $http_error_string = trim($http_error_string);
     }
+
+    curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, array());
 
     // Throw an exception if this isn't a 2XX response.
     if (!preg_match("/^2/", $info['http_code'])) {
@@ -489,33 +490,53 @@ class CurlConnection extends HttpConnection {
   /**
    * @see HttpConnection::postRequest
    */
-  public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL) {
+  public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL, $options = array()) {
     $this->setupCurlContext($url);
-    curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
-    curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
+    //curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
+    //curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
+    if (isset($options['headers'])) {
+      //      curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $options['headers']);
+    }
+    $temp = tempnam(sys_get_temp_dir(), 'tuque');
+    file_put_contents($temp, $data);
+    $fp = fopen($temp, 'r');
+    dsm($type, 'type');
 
-    switch (strtolower($type)) {
-      case 'string':
         if ($content_type) {
           $headers = array("Content-Type: $content_type");
         }
         else {
           $headers = array("Content-Type: text/plain");
         }
-        curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt(self::$curlContext, CURLOPT_POSTFIELDS, $data);
+        if (isset($options['headers'])) {
+          $headers = array_merge($headers, $options['headers']);
+        }
+
+    switch (strtolower($type)) {
+      case 'string':
+        //curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt(self::$curlContext, CURLOPT_UPLOAD, 1);
+        curl_setopt(self::$curlContext, CURLOPT_INFILE, $fp);
+        curl_setopt(self::$curlContext, CURLOPT_INFILESIZE, filesize($temp));
         break;
 
       case 'file':
+        //        curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt(self::$curlContext, CURLOPT_UPLOAD, 1);
+        curl_setopt(self::$curlContext, CURLOPT_INFILE, $fp);
+        curl_setopt(self::$curlContext, CURLOPT_INFILESIZE, filesize($temp));
+        /*
         if ($content_type) {
           curl_setopt(self::$curlContext, CURLOPT_POSTFIELDS, array('file' => "@$data;type=$content_type"));
         }
         else {
           curl_setopt(self::$curlContext, CURLOPT_POSTFIELDS, array('file' => "@$data"));
-        }
+        }*/
         break;
 
       case 'none':
+        curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
+        curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
         curl_setopt(self::$curlContext, CURLOPT_POSTFIELDS, array());
         break;
 
@@ -523,6 +544,8 @@ class CurlConnection extends HttpConnection {
         throw new HttpConnectionException('$type must be: string, file. ' . "($type).", 0);
     }
 
+
+    dsm(curl_getinfo(self::$curlContext));
     // Ugly substitute for a try catch finally block.
     $exception = NULL;
     try {
@@ -539,6 +562,9 @@ class CurlConnection extends HttpConnection {
       $this->unallocateCurlContext();
     }
 
+    fclose($fp);
+    unlink($temp);
+
     if ($exception) {
       throw $exception;
     }
@@ -549,9 +575,12 @@ class CurlConnection extends HttpConnection {
   /**
    * @see HttpConnection::putRequest
    */
-  function putRequest($url, $type = 'none', $file = NULL) {
+  function putRequest($url, $type = 'none', $file = NULL, $options = array()) {
     $this->setupCurlContext($url);
     curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'PUT');
+    if (isset($options['headers'])) {
+      curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $options['headers']);
+    }
     switch (strtolower($type)) {
       case 'string':
         $fh = fopen('php://memory', 'rw');
@@ -612,7 +641,8 @@ class CurlConnection extends HttpConnection {
   /**
    * @see HttpConnection::getRequest
    */
-  function getRequest($url, $headers_only = FALSE, $file = NULL) {
+  function getRequest($url, $options = array()) {
+
     // Need this as before we were opening a new file pointer for std for each
     // request. When the ulimit was reached this would make things blow up.
     static $stdout = NULL;
@@ -622,7 +652,7 @@ class CurlConnection extends HttpConnection {
     }
     $this->setupCurlContext($url);
 
-    if ($headers_only) {
+    if (isset($options['headers_only']) && $options['headers_only'] === TRUE) {
       curl_setopt(self::$curlContext, CURLOPT_NOBODY, TRUE);
       curl_setopt(self::$curlContext, CURLOPT_HEADER, TRUE);
     } else {
@@ -630,10 +660,17 @@ class CurlConnection extends HttpConnection {
       curl_setopt(self::$curlContext, CURLOPT_HTTPGET, TRUE);
     }
 
-    if ($file) {
-      $file = fopen($file, 'w+');
+    if (isset($options['file'])) {
+      $file = fopen($options['file'], 'w+');
       curl_setopt(self::$curlContext, CURLOPT_FILE, $file);
       curl_setopt(self::$curlContext, CURLOPT_HEADER, FALSE);
+    }
+    else {
+      $file = NULL;
+    }
+
+    if (isset($options['headers'])) {
+      curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $options['headers']);
     }
 
     // Ugly substitute for a try catch finally block.
@@ -677,7 +714,8 @@ class CurlConnection extends HttpConnection {
     $exception = NULL;
     try {
       $results = $this->doCurlRequest();
-    } catch (HttpConnectionException $e) {
+    }
+    catch (HttpConnectionException $e) {
       $exception = $e;
     }
 
@@ -693,6 +731,81 @@ class CurlConnection extends HttpConnection {
     }
 
     return $results;
+  }
+
+}
+
+
+class cURL {
+
+  //const COOKIE_LOCATION = 'curl_cookie';
+  //protected $cookieFile = NULL;
+  //protected static $curlContext = NULL;
+
+  /**
+   * cURL multi-handle.
+   *
+   * Caches the connection, and allows multiple requests to be executed in
+   * parallel.
+   * @var resource
+   */
+  protected $handle;
+
+  /**
+   * Construct the object.
+   * @throws HttpConnectionException
+   */
+  public function __construct() {
+    if (!function_exists("curl_init")) {
+      throw new Exception('cURL PHP Module must be enabled.');
+    }
+    $this->handle = curl_multi_init();
+    // @todo Add support for cookies :) yum
+    //$this->createCookieFile();
+  }
+
+  public function __destruct() {
+    curl_multi_close($this->handle);
+    //$this->saveCookiesToSession();
+  }
+
+  /**
+   * Executes one or more handles.
+   *
+   * @param mixed $handles
+   *   Either a single curl handle or multiple in a array. If there are multiple
+   *   they will be executed in parallel.
+   *
+   * @return array
+   *   A single response or multiple responses.
+   */
+  public function execute($handles) {
+    $handles = is_array($handles) ? $handles : array($handles);
+    // Add handles to execute.
+    foreach ($handles as $handle) {
+      curl_multi_add_handle($this->handle, $handle);
+    }
+    // Execute/initialize the handles, must be called before curl_multi_select
+    // to ensure it functions correctly.
+    $still_running = NULL;
+    do {
+      $status = curl_multi_exec($this->handle,  $still_running);
+    } while ($status == CURLM_CALL_MULTI_PERFORM);
+    // At least one of the handles have been started, now we loop occasionally
+    // blocking while we wait for response from our requests.
+    while ($still_running && $status == CURLM_OK) {
+      // This *shouldn't* loop for ever in the event of an error.
+      // multiple calls will eventually return 0.
+      if (curl_multi_select($this->handle) != -1) {
+        do {
+          $status = curl_multi_exec($multi, $still_running);
+        } while ($status == CURLM_CALL_MULTI_PERFORM);
+      }
+    }
+    // Remove executed handles, regardless of their success.
+    foreach ($handles as $handle) {
+      curl_multi_remove_handle($this->handle, $handle);
+    }
   }
 
 }

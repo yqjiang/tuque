@@ -13,64 +13,70 @@ class FoxmlDocument extends DOMDocument {
   const fedora_model = 'info:fedora/fedora-system:def/model#';
 
   protected $root;
-  protected $object;
 
-  public function __construct(NewFedoraObject $object) {
+  public static function fromObject(AbstractObject $object) {
+    $foxml_document = new self();
+    $foxml_document->createRootElementFromObject($object);
+    $foxml_document->createDocumentFromObject($object);
+    return $foxml_document;
+  }
+
+  public static function fromString($string) {
+    $foxml_document = new self();
+    $foxml_document->loadXML($string);
+    return $foxml_document;
+  }
+
+  public static function fromDOMDocument(DOMDocument $doc) {
+    return self::fromString($doc->saveXML());
+  }
+
+  public function __construct() {
     parent::__construct("1.0", "UTF-8"); // DomDocument
     $this->formatOutput = TRUE;
     $this->preserveWhiteSpace = FALSE;
-    $this->object = $object;
-    $this->root = $this->createRootElement();
-    $this->createDocument();
   }
 
-  private function createRootElement() {
+  private function createRootElementFromObject(AbstractObject $object) {
     $root = $this->createElementNS(self::FOXML, 'foxml:digitalObject');
     $root->setAttribute('VERSION', '1.1');
-    $root->setAttribute('PID', "{$this->object->id}");
+    $root->setAttribute('PID', "{$object->id}");
     $root->setAttributeNS(self::xmlns, 'xmlns', self::FOXML);
     $root->setAttributeNS(self::xmlns, 'xmlns:foxml', self::FOXML);
     $root->setAttributeNS(self::xmlns, 'xmlns:xsi', self::xsi);
     $root->setAttributeNS(self::xsi, 'xsi:schemaLocation', self::FOXML . " http://www.fedora.info/definitions/1/0/foxml1-1.xsd");
     $this->appendChild($root);
-    return $root;
+    $this->root = $root;
   }
 
-  private function createDocument() {
-    /**
-     * If DOMNodes are not appended in the corrected order root -> leaf, namespaces may break...
-     * So be be cautious, add DOMNodes to their parent element before adding child elements to them.
-     */
-    $this->createObjectProperties();
-    $this->createDocumentDatastreams();
+  private function createDocumentFromObject(AbstractObject $object) {
+    // If DOMNodes are not appended in the corrected order root -> leaf,
+    // namespaces may break... So be be cautious, add DOMNodes to their
+    // parent element before adding child elements to them.
+    $this->createObjectProperties($object);
+    $this->createDocumentDatastreams($object);
   }
 
-  /**
-   *
-   * @param DOMElement $root
-   * @return DOMElement
-   */
-  private function createObjectProperties() {
+  private function createObjectProperties(AbstractObject $object) {
     $object_properties = $this->createElementNS(self::FOXML, 'foxml:objectProperties');
     $this->root->appendChild($object_properties);
 
     $property = $this->createElementNS(self::FOXML, 'foxml:property');
     $property->setAttribute('NAME', 'info:fedora/fedora-system:def/model#state');
-    $property->setAttribute('VALUE', $this->object->state);
+    $property->setAttribute('VALUE', $object->state);
     $object_properties->appendChild($property);
 
     $property = $this->createElementNS(self::FOXML, 'foxml:property');
     $property->setAttribute('NAME', 'info:fedora/fedora-system:def/model#label');
-    $property->setAttribute('VALUE', $this->object->label);
+    $property->setAttribute('VALUE', $object->label);
     $object_properties->appendChild($property);
 
-    if (isset($this->object->owner)) {
+    if (isset($object->owner)) {
       $property = $this->createElementNS(self::FOXML, 'foxml:property');
       $property->setAttribute('NAME', 'info:fedora/fedora-system:def/model#ownerId');
-      $property->setAttribute('VALUE', $this->object->owner);
+      $property->setAttribute('VALUE', $object->owner);
       $object_properties->appendChild($property);
     }
-
     return $object_properties;
   }
 
@@ -138,9 +144,9 @@ class FoxmlDocument extends DOMDocument {
   /**
    * Passes each datastream to the appropriate ds create function.
    */
-  public function createDocumentDatastreams() {
-    foreach ($this->object as $ds) {
-      switch($ds->controlGroup) {
+  private function createDocumentDatastreams(AbstractObject $object) {
+    foreach ($object as $ds) {
+      switch ($ds->controlGroup) {
         case 'X':
           $this->createInlineDocumentDatastream($ds);
           break;
@@ -176,7 +182,7 @@ class FoxmlDocument extends DOMDocument {
     $simple_dom = simplexml_import_dom($xml_dom);
     $namespaces = $simple_dom->getDocNamespaces(TRUE);
     foreach ($namespaces as $prefix => $uri) {
-      if($prefix) {
+      if ($prefix) {
         $child->setAttributeNS(self::xmlns, "xmlns:$prefix", $uri);
       }
     }

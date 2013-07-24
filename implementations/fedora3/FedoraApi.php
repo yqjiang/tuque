@@ -10,7 +10,7 @@
  */
 
 require_once 'RepositoryException.php';
-require_once 'RepositoryConnection.php';
+require_once 'implementations/fedora3/RepositoryConnection.php';
 
 /**
  * This is a simple class that brings FedoraApiM and FedoraApiA together.
@@ -143,7 +143,7 @@ class FedoraApiA {
    * Authenticate and provide basic information about a user's
    * fedora attributes. Please note that calling this method
    * with an unauthenticated (i.e. anonymous) user will throw
-   * an 'HttpConnectionException' with the message 'Unauthorized'. 
+   * an 'HttpConnectionException' with the message 'Unauthorized'.
    *
    * @return array()
    *    Returns an array containing user attributes (i.e. fedoraRole).
@@ -336,12 +336,9 @@ class FedoraApiA {
     $pid = urlencode($pid);
     $dsid = urlencode($dsid);
     $seperator = '?';
-
     $request = "/objects/$pid/datastreams/$dsid/content";
-
     $this->connection->addParam($request, $seperator, 'asOfDateTime', $as_of_date_time);
-
-    $response = $this->connection->getRequest($request, FALSE, $file);
+    $response = $this->connection->getRequest($request, array('file' => $file));
     $response = $this->serializer->getDatastreamDissemination($response, $file);
     return $response;
   }
@@ -708,7 +705,6 @@ class FedoraApiM {
     $this->connection->addParamArray($request, $seperator, $params, 'checksum');
     $this->connection->addParamArray($request, $seperator, $params, 'mimeType');
     $this->connection->addParamArray($request, $seperator, $params, 'logMessage');
-
     $response = $this->connection->postRequest($request, $type, $file);
     $response = $this->serializer->addDatastream($response);
     return $response;
