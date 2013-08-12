@@ -126,9 +126,10 @@ class Fedora4ApiA extends FedoraApiA {
    * the version ID and then another to getVersions for now just get the
    * latest.
    */
+  
   public function getDatastreamDissemination($pid, $dsid, $as_of_date_time = NULL, $file = NULL) {
-    $pid = urlencode($pid);
-    $dsid = urlencode($dsid);
+    //$pid = urlencode($pid);
+    //$dsid = urlencode($dsid);
     $request = "/$pid/$dsid/fcr:content";
     $response = $this->connection->getRequest($request, array('file' => $file));
     $response = $this->serializer->getDatastreamDissemination($response, $file);
@@ -160,13 +161,15 @@ class Fedora4ApiA extends FedoraApiA {
    * latest.
    */
   public function getObjectProfile($pid, $as_of_date_time = NULL) {
-    $pid = urlencode($pid);
+    //$pid = urlencode($pid);
     $request = "/{$pid}";
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
+   // print_r($object);
+   // echo $id;
     return array(
       // Object Labels are not implemented yet.
       'objLabel' => 'Default Label',
@@ -175,7 +178,7 @@ class Fedora4ApiA extends FedoraApiA {
       // implemented as mixinType's.
       'objModels' => array('info:fedora/fedora-system:FedoraObject-3.0'),
       'objCreateDate' => $object['created'],
-      'objLastModDate' => $object['lastModified'],
+   //   'objLastModDate' => $object['lastModified'],
       // Object state not implemented yet.
       'objState' => 'A',
     );
@@ -190,12 +193,14 @@ class Fedora4ApiA extends FedoraApiA {
    * latest.
    */
   public function listDatastreams($pid, $as_of_date_time = NULL) {
-    $pid = urlencode($pid);
+    //$pid = urlencode($pid);
     $request = "/{$pid}";
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
+    echo "\nid:".$id;
+   // print_r($response['content']);
     $object = $this->serializer->getNode($id, $response['content']);
     $out = array();
     foreach ($object['datastreams'] as $ds) {
@@ -253,9 +258,10 @@ class Fedora4ApiM  extends FedoraApiM {
    *          'logMessage'
    */
   public function addDatastream($pid, $dsid, $type, $file, $params) {
-    $pid = urlencode($pid);
-    $dsid = urlencode($dsid);
+    //$pid = urlencode($pid);
+    //$dsid = urlencode($dsid);
     $request = "/$pid/$dsid";
+    
     $seperator = '?';
     switch (strtolower($type)) {
       case 'file':
@@ -265,13 +271,15 @@ class Fedora4ApiM  extends FedoraApiM {
         throw new RepositoryBadArguementException("Type must be one of: file, string. ($type)");
         break;
     }
-    $this->connection->addParamArray($request, $seperator, $params, 'checksumType');
-    $this->connection->addParamArray($request, $seperator, $params, 'checksum');
+    //$this->connection->addParamArray($request, $seperator, $params, 'checksumType');
+    //$this->connection->addParamArray($request, $seperator, $params, 'checksum');
     $this->connection->addParam($request, $seperator, 'mixin', 'fedora:datastream');
-
-    $response = $this->connection->postRequest($request, $type, $file, $params['mimeType']);
+//    $response = $this->connection->postRequest($request, $type, $file, $params['mimeType']);
+    $response = $this->connection->postRequest($request, $type, $file);
     // Second request to get info.
-    return $this->getDatastream($pid, $dsid);
+    //echo $response['headers'];
+    return $this->getDatastream($pid, $dsid,null);
+    //return $response['content'];
   }
 
   /**
@@ -289,22 +297,35 @@ class Fedora4ApiM  extends FedoraApiM {
    * No support for FOXML at the moment.
    */
   public function export($pid, $params = array()) {
-    trigger_error("TODO implement this function.", E_USER_NOTICE);
+    $request = "/$pid/fcr:export";
+    $seperator = '?';
+    if (isset($params['exportFormat'])) {
+      $this->connection->addParamArray($request, $seperator, $params['exportFormat'], 'fornat');
+    }
+    $response = $this->connection->getRequest($request);
+    $return = $this->serializer->export($response);
+    return $return;
   }
 
   /**
    * See add Datastream for what is stubbed etc.
    */
   public function getDatastream($pid, $dsid, $params = array()) {
-    $pid = urlencode($pid);
-    $dsid = urlencode($dsid);
+    //$pid = urlencode($pid);
+    //$dsid = urlencode($dsid);
     $request = "/{$pid}/$dsid";
+    echo $request;
+    $options['headers_only']=TRUE;
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
-    $response['content'] = json_decode($response['content'], TRUE);
+    //echo "response:".$response['content']."\n";
+    $responseArray= json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
-    $ds = $this->serializer->getNode($id, $response['content']);
-    dsm($ds, $id);
+    $id = str_replace('%3A', ':', $id);
+    //echo $id."\n";
+    // print_r($responseArray);
+    $ds = $this->serializer->getNode($id, $responseArray);
+    //print_r($ds);
     return array(
       // Datastream Labels are not implemented yet.
       'dsLabel' => 'Default Label',
@@ -313,12 +334,12 @@ class Fedora4ApiM  extends FedoraApiM {
       'dsCreateDate' => $ds['created'],
       // Datastream state not implemented yet.
       'dsState' => 'A',
-      'dsMIME' => $ds['content']['mimeType'],
+      //'dsMIME' => $ds['content']['mimeType'],
       // Format URI is no longer supported.
       'dsFormatURI' => '',
       // Control Group is no longer supported.
       'dsControlGroup' => 'M',
-      'dsSize' => $ds['content']['size'],
+      //'dsSize' => $ds['content']['size'],
       // Versioning doesn't work currently.
       'dsVersionable' => false,
       // dsInfoType, dsLocationType, and dsLocation are not relevent at the
@@ -328,8 +349,8 @@ class Fedora4ApiM  extends FedoraApiM {
       'dsLocationType' => '',
       // Not provied by the request just assuming the call had the correct
       // values for now.
-      'dsChecksumType' => $params['checksumType'],
-      'dsChecksum' => $params['checksum'],
+//      'dsChecksumType' => $params['checksumType'],
+//      'dsChecksum' => $params['checksum'],
       // No message system for versions at the moment.
       'dsLogMessage' => '',
     );
@@ -362,8 +383,11 @@ class Fedora4ApiM  extends FedoraApiM {
       'headers' => array('Accept: application/rdf+json'),
     );
     $response = $this->connection->postRequest($request, 'none', NULL, NULL, $options);
+    print_r($response);
     $response['content'] = json_decode($response['content'], TRUE);
+     print_r($response['content']);
     $new_pids = $response['content'][$id]['info:fedora/fedora-system:def/internal#hasMember'];
+    print_r($new_pids);
     foreach ($new_pids as &$pid) {
       $pid = preg_replace('/^.*\/rest\/(.*)$/', '$1', $pid['value']);
     }
@@ -405,15 +429,14 @@ class Fedora4ApiM  extends FedoraApiM {
     elseif (isset($params['file'])) {
       $foxml = simplexml_load_file($params['file']);
     }
+    $datastreams = array();
     if (isset($foxml)) {
-      dsm($foxml->asXML());
       $pid = (string) $foxml['PID'];
-      $datastreams = array();
       $children = $foxml->children('foxml', TRUE);
       $attribute = function(SimpleXMLElement $el, $attr) {
-        $results = $el->xpath("@{$attr}");
-        return (string) array_shift($results);
-      };
+            $results = $el->xpath("@{$attr}");
+            return (string) array_shift($results);
+          };
       foreach ($children->datastream as $datastream) {
         $dsid = $attribute($datastream, 'ID');
         // Just grab the first version for now.
@@ -429,6 +452,10 @@ class Fedora4ApiM  extends FedoraApiM {
           $children = $version->xmlContent->xpath('*');
           $data = (string) array_pop($children)->asXML();
         }
+        elseif (isset($version->binaryContent)) {
+          $type = 'string';
+          $data = (string) $version->binaryContent;
+        }
         $datastreams[$dsid] = array(
           'mimeType' => $attribute($version, 'MIMETYPE'),
           'type' => $type,
@@ -436,25 +463,52 @@ class Fedora4ApiM  extends FedoraApiM {
         );
       }
     }
-    else {
+    if (empty($pid)) {
       $pid = isset($params['pid']) ? $params['pid'] : '';
     }
     // Create the object.
-    $pid = urlencode($pid);
     $request = empty($pid) ? "/fcr:new" : "/$pid";
+    if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
     $response = $this->connection->postRequest($request);
     $pid = $response['content'];
-    // Create the datastreams.
+    $pid = substr($pid, 1);
     foreach ($datastreams as $dsid => $ds) {
-      $params = array(
-        'mimeType' => $ds['mimeType'],
-      );
-      dsm($params, 'p');
+      $params = array();
       $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $params);
     }
+    echo $response['content'] . "\n";
     return $response['content'];
   }
-
+  
+  /**
+   * 
+   * @return s
+   */
+  public function addTransaction()
+  {
+      //post transactions
+      $request = "/fcr:tx";
+      $result = $this->connection-> postRequest($request,'none');
+      //get transaction ID
+      $headers = $result['headers'];
+      $txstart = strpos($headers, 'tx:')+3;
+      $txId = substr($headers,$txstart,36);
+      return $txId;
+  }
+  
+  public function commitTransaction($transactionID)
+  {
+    $request = "/tx:{$transactionID}/fcr:tx/fcr:commit";
+    $this->connection-> postRequest($request,'none');
+  }
+  
+  public function rollbackTransaction($transactionID)
+  {
+    $request = "/tx:{$transactionID}/fcr:tx/fcr:rollback";
+    $this->connection-> postRequest($request,'none');
+  }
   /**
    * Properties aside from content are just ignored for the moment.
    *
