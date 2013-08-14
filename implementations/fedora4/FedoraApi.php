@@ -9,7 +9,7 @@
  * SOAP interface. If there are version specific modifications to be made for
  * Fedora, this is the place to make them.
  */
-
+set_include_path("sites/all/libraries/tuque/");
 require_once 'RepositoryException.php';
 require_once 'implementations/fedora3/FedoraApi.php';
 require_once 'implementations/fedora3/RepositoryConnection.php';
@@ -44,7 +44,7 @@ class Fedora4Api extends FedoraApi {
    * @param FedoraApiSerializer $serializer
    *   (Optional) If one isn't provided a default will be used.
    */
-  public function  __construct(RepositoryConnection $connection = NULL, Fedora4ApiSerializer $serializer = NULL) {
+  public function __construct(RepositoryConnection $connection = NULL, Fedora4ApiSerializer $serializer = NULL) {
     if (!$connection) {
       $connection = new RepositoryConnection();
     }
@@ -58,6 +58,7 @@ class Fedora4Api extends FedoraApi {
 
     $this->connection = $connection;
   }
+
 }
 
 /**
@@ -69,7 +70,6 @@ class Fedora4Api extends FedoraApi {
  * https://wiki.duraspace.org/display/FEDORA35/REST+API
  */
 class Fedora4ApiA extends FedoraApiA {
-
 
   /**
    * Constructor for the new FedoraApiA object.
@@ -126,7 +126,6 @@ class Fedora4ApiA extends FedoraApiA {
    * the version ID and then another to getVersions for now just get the
    * latest.
    */
-  
   public function getDatastreamDissemination($pid, $dsid, $as_of_date_time = NULL, $file = NULL) {
     //$pid = urlencode($pid);
     //$dsid = urlencode($dsid);
@@ -168,8 +167,7 @@ class Fedora4ApiA extends FedoraApiA {
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
-   // print_r($object);
-   // echo $id;
+    //print_r($object);
     return array(
       // Object Labels are not implemented yet.
       'objLabel' => 'Default Label',
@@ -178,7 +176,7 @@ class Fedora4ApiA extends FedoraApiA {
       // implemented as mixinType's.
       'objModels' => array('info:fedora/fedora-system:FedoraObject-3.0'),
       'objCreateDate' => $object['created'],
-   //   'objLastModDate' => $object['lastModified'],
+      'objLastModDate' => $object['lastModified'],
       // Object state not implemented yet.
       'objState' => 'A',
     );
@@ -199,15 +197,16 @@ class Fedora4ApiA extends FedoraApiA {
     $response = $this->connection->getRequest($request, $options);
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
-    echo "\nid:".$id;
-   // print_r($response['content']);
+    //print_r($response['content']);
     $object = $this->serializer->getNode($id, $response['content']);
     $out = array();
-    foreach ($object['datastreams'] as $ds) {
-      $out[$ds['id']] = array(
-        'label' => 'Default Label',
-        'mimetype' => $ds['content']['mimeType'],
-      );
+    if (isset($object['datastreams'])) {
+      foreach ($object['datastreams'] as $ds) {
+        $out[$ds['id']] = array(
+          'label' => 'Default Label',
+          'mimetype' => $ds['content']['mimeType'],
+        );
+      }
     }
     return $out;
   }
@@ -220,7 +219,6 @@ class Fedora4ApiA extends FedoraApiA {
     trigger_error("Deprecated function called.", E_USER_NOTICE);
   }
 
-
 }
 
 /**
@@ -231,7 +229,7 @@ class Fedora4ApiA extends FedoraApiA {
  * See this page for more information:
  * https://wiki.duraspace.org/display/FEDORA35/REST+API
  */
-class Fedora4ApiM  extends FedoraApiM {
+class Fedora4ApiM extends FedoraApiM {
 
   /**
    * Constructor for the new FedoraApiM object.
@@ -261,7 +259,7 @@ class Fedora4ApiM  extends FedoraApiM {
     //$pid = urlencode($pid);
     //$dsid = urlencode($dsid);
     $request = "/$pid/$dsid";
-    
+
     $seperator = '?';
     switch (strtolower($type)) {
       case 'file':
@@ -278,7 +276,7 @@ class Fedora4ApiM  extends FedoraApiM {
     $response = $this->connection->postRequest($request, $type, $file);
     // Second request to get info.
     //echo $response['headers'];
-    return $this->getDatastream($pid, $dsid,null);
+    return $this->getDatastream($pid, $dsid, null);
     //return $response['content'];
   }
 
@@ -314,12 +312,12 @@ class Fedora4ApiM  extends FedoraApiM {
     //$pid = urlencode($pid);
     //$dsid = urlencode($dsid);
     $request = "/{$pid}/$dsid";
-    echo $request;
-    $options['headers_only']=TRUE;
+    //echo $request;
+    $options['headers_only'] = TRUE;
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
     //echo "response:".$response['content']."\n";
-    $responseArray= json_decode($response['content'], TRUE);
+    $responseArray = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $id = str_replace('%3A', ':', $id);
     //echo $id."\n";
@@ -385,7 +383,7 @@ class Fedora4ApiM  extends FedoraApiM {
     $response = $this->connection->postRequest($request, 'none', NULL, NULL, $options);
     print_r($response);
     $response['content'] = json_decode($response['content'], TRUE);
-     print_r($response['content']);
+    print_r($response['content']);
     $new_pids = $response['content'][$id]['info:fedora/fedora-system:def/internal#hasMember'];
     print_r($new_pids);
     foreach ($new_pids as &$pid) {
@@ -478,37 +476,34 @@ class Fedora4ApiM  extends FedoraApiM {
       $params = array();
       $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $params);
     }
-    echo $response['content'] . "\n";
     return $response['content'];
   }
-  
+
   /**
    * 
    * @return s
    */
-  public function addTransaction()
-  {
-      //post transactions
-      $request = "/fcr:tx";
-      $result = $this->connection-> postRequest($request,'none');
-      //get transaction ID
-      $headers = $result['headers'];
-      $txstart = strpos($headers, 'tx:')+3;
-      $txId = substr($headers,$txstart,36);
-      return $txId;
+  public function addTransaction() {
+    //post transactions
+    $request = "/fcr:tx";
+    $result = $this->connection->postRequest($request, 'none');
+    //get transaction ID
+    $headers = $result['headers'];
+    $txstart = strpos($headers, 'tx:') + 3;
+    $txId = substr($headers, $txstart, 36);
+    return $txId;
   }
-  
-  public function commitTransaction($transactionID)
-  {
+
+  public function commitTransaction($transactionID) {
     $request = "/tx:{$transactionID}/fcr:tx/fcr:commit";
-    $this->connection-> postRequest($request,'none');
+    $this->connection->postRequest($request, 'none');
   }
-  
-  public function rollbackTransaction($transactionID)
-  {
+
+  public function rollbackTransaction($transactionID) {
     $request = "/tx:{$transactionID}/fcr:tx/fcr:rollback";
-    $this->connection-> postRequest($request,'none');
+    $this->connection->postRequest($request, 'none');
   }
+
   /**
    * Properties aside from content are just ignored for the moment.
    *
@@ -576,7 +571,7 @@ class Fedora4ApiM  extends FedoraApiM {
   /**
    * Not implemented.
    */
-  public function validate($pid, $as_of_date_time=NULL){
+  public function validate($pid, $as_of_date_time = NULL) {
     // Doesn't seem to be used by islandora proper.
     trigger_error("Deprecated function called.", E_USER_NOTICE);
   }

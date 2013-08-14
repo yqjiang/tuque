@@ -17,6 +17,7 @@
  *   The array containing: status, headers, and content of the HTTP request
  *   causing the error. This is only set if there was a HTTP response sent.
  */
+set_include_path("sites/all/libraries/tuque/");
 class HttpConnectionException extends Exception {
 
   protected $response;
@@ -673,7 +674,7 @@ class CurlConnection extends HttpConnection {
     }
     else {
       $file = NULL;
-      curl_setopt(self::$curlContext, CURLOPT_INFILE, STDIN);
+      //curl_setopt(self::$curlContext, CURLOPT_INFILE, STDIN);
     }
     
     if (isset($options['headers'])) {
