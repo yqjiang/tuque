@@ -167,6 +167,7 @@ class Fedora4ApiA extends FedoraApiA {
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
+
     $return_array = array('objLabel' => 'Default Label', 'objState' => 'A');
 
     if (isset($object['createdBy'])) {
@@ -321,6 +322,7 @@ class Fedora4ApiM extends FedoraApiM {
         break;
     }
     $this->connection->addParam($request, $seperator, 'mixin', 'fedora:datastream');
+
     $response = $this->connection->postRequest($request, $type, $file,'text/html',NULL);
     return $this->getDatastream($pid, $dsid, null);
     //return $response['content'];

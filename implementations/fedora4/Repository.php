@@ -201,11 +201,14 @@ class FedoraRepository extends AbstractRepository {
    *   the exception
    */
   public function getObject($id) {
+
+    //$fobject =$this->constructObject($id);
+    $fobject =new FedoraObject($id,$this);
+    $this->cache->set($id,$fobject);
     $object = $this->cache->get($id);
     if ($object !== FALSE) {
       return $object;
     }
-    
     try {
       $object = new $this->objectClass($id, $this);
       $this->cache->set($id, $object);
