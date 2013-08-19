@@ -5,6 +5,7 @@
  * This file defines the classes that are used for manipulaing the fedora
  * relationships datastreams.
  */
+set_include_path("sites/all/libraries/tuque/");
 define("XMLNS", "http://www.w3.org/2000/xmlns/");
 define('FEDORA_RELS_EXT_URI', 'info:fedora/fedora-system:def/relations-external#');
 define("FEDORA_MODEL_URI", 'info:fedora/fedora-system:def/model#');

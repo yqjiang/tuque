@@ -4,7 +4,7 @@
  * This file defines an abstract repository that can be overridden and also
  * defines a concrete implementation for Fedora.
  */
-
+set_include_path("sites/all/libraries/tuque/");
 require_once "AbstractRepository.php";
 require_once "implementations/fedora3/RepositoryQuery.php";
 require_once "implementations/fedora3/FoxmlDocument.php";

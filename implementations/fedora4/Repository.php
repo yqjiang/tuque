@@ -4,11 +4,11 @@
  * This file defines an abstract repository that can be overridden and also
  * defines a concrete implementation for Fedora.
  */
-
+set_include_path("sites/all/libraries/tuque/");
 require_once "AbstractRepository.php";
 require_once "implementations/fedora3/RepositoryQuery.php";
 require_once "implementations/fedora3/FoxmlDocument.php";
-require_once "implementations/fedora3/Object.php";
+require_once "implementations/fedora4/Object.php";
 
 /**
  * Concrete implementation of the AbstractRepository for Fedora.
@@ -50,7 +50,7 @@ class FedoraRepository extends AbstractRepository {
    * @param AbstractCache $cache
    *   An instantiated AbstractCache which will be used to cache fedora objects.
    */
-  public function __construct(FedoraApi $api, AbstractCache $cache) {
+  public function __construct(Fedora4Api $api, AbstractCache $cache) {
     $this->api = $api;
     $this->cache = $cache;
     $this->ri = new $this->queryClass($this->api->connection);
@@ -88,7 +88,6 @@ class FedoraRepository extends AbstractRepository {
    */
   public function getNextIdentifier($namespace = NULL, $create_uuid = FALSE, $number_of_identifiers = 1) {
     $pids = array();
-
     if ($create_uuid) {
       if (is_null($namespace)) {
         $repository_info = $this->api->a->describeRepository();
@@ -206,7 +205,7 @@ class FedoraRepository extends AbstractRepository {
     if ($object !== FALSE) {
       return $object;
     }
-
+    
     try {
       $object = new $this->objectClass($id, $this);
       $this->cache->set($id, $object);

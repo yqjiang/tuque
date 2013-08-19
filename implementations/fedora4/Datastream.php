@@ -5,6 +5,7 @@
  * This file defines all the classes used to manipulate datastreams in the
  * repository.
  */
+set_include_path("sites/all/libraries/tuque/");
 require_once 'AbstractDatastream.php';
 require_once 'implementations/fedora3/FedoraDate.php';
 
@@ -58,7 +59,8 @@ abstract class AbstractFedoraDatastream extends AbstractDatastream {
     $this->repository = $repository;
     $this->relationships = new $this->fedoraRelsIntClass($this);
   }
-
+  
+      
   /**
    * @see AbstractDatastream::id
    */

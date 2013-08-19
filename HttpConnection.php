@@ -17,6 +17,7 @@
  *   The array containing: status, headers, and content of the HTTP request
  *   causing the error. This is only set if there was a HTTP response sent.
  */
+set_include_path("sites/all/libraries/tuque/");
 class HttpConnectionException extends Exception {
 
   protected $response;
@@ -502,19 +503,18 @@ class CurlConnection extends HttpConnection {
     $fp = fopen($temp, 'r');
 
 
-        if ($content_type) {
-          $headers = array("Content-Type: $content_type");
-        }
-        else {
-          $headers = array("Content-Type: text/plain");
-        }
-        if (isset($options['headers'])) {
-          $headers = array_merge($headers, $options['headers']);
-        }
-
+    if ($content_type) {
+      $headers = array("Content-Type: $content_type");
+    }
+    else {
+      $headers = array("Content-Type: text/plain");
+    }
+    if (isset($options['headers'])) {
+      $headers = array_merge($headers, $options['headers']);
+    }
     switch (strtolower($type)) {
       case 'string':
-        //curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
         curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
         curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
         curl_setopt(self::$curlContext, CURLOPT_UPLOAD, 1);
@@ -523,7 +523,7 @@ class CurlConnection extends HttpConnection {
         break;
 
       case 'file':
-        //        curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $headers);
         curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
         curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
         curl_setopt(self::$curlContext, CURLOPT_UPLOAD, 1);
@@ -573,7 +573,6 @@ class CurlConnection extends HttpConnection {
     if ($exception) {
       throw $exception;
     }
-
     return $results;
   }
 
@@ -673,7 +672,7 @@ class CurlConnection extends HttpConnection {
     }
     else {
       $file = NULL;
-      curl_setopt(self::$curlContext, CURLOPT_INFILE, STDIN);
+      //curl_setopt(self::$curlContext, CURLOPT_INFILE, STDIN);
     }
     
     if (isset($options['headers'])) {

@@ -6,7 +6,7 @@
  * The essance of this file was taken from some commits that Adam Vessy made to
  * Islandora 6.x, so I'd like to give him some credit here.
  */
-
+set_include_path("sites/all/libraries/tuque/");
 class RepositoryQuery {
 
   public $connection;
