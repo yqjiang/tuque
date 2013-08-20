@@ -159,14 +159,20 @@ class Fedora4ApiA extends FedoraApiA {
    * the version ID and then another to getVersions for now just get the
    * latest.
    */
-  public function getObjectProfile($pid, $as_of_date_time = NULL) {
+  public function getObjectProfile($pid, $as_of_date_time = NULL, $params = array()) {
     //$pid = urlencode($pid);
     $request = "/{$pid}";
+    
+    if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
+    
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
+
 
     $return_array = array('objLabel' => 'Default Label', 'objState' => 'A');
 
@@ -198,7 +204,7 @@ class Fedora4ApiA extends FedoraApiA {
       $temp = array('objCreateDate' => '1900-01-01T00:00:00.000Z');
       $return_array = array_merge($temp, $return_array);
     }
- 
+
     return $return_array;
   }
 
@@ -210,14 +216,16 @@ class Fedora4ApiA extends FedoraApiA {
    * the version ID and then another to getVersions for now just get the
    * latest.
    */
-  public function listDatastreams($pid, $as_of_date_time = NULL) {
+  public function listDatastreams($pid, $as_of_date_time = NULL,$params = array()) {
     //$pid = urlencode($pid);
     $request = "/{$pid}";
+    if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
-    //print_r($response['content']);
     $object = $this->serializer->getNode($id, $response['content']);
     $out = array();
     if (isset($object['datastreams'])) {
@@ -325,7 +333,6 @@ class Fedora4ApiM extends FedoraApiM {
 
     $response = $this->connection->postRequest($request, $type, $file,'text/html',NULL);
     return $this->getDatastream($pid, $dsid, null);
-    //return $response['content'];
   }
 
   /**
