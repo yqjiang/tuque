@@ -150,7 +150,8 @@ class Fedora4ApiA extends FedoraApiA {
     // Doesn't seem to be used by islandora proper.
     trigger_error("Deprecated function called.", E_USER_NOTICE);
   }
-
+  
+  
   /**
    * Gets the given object as of the given date time.
    *
@@ -172,9 +173,15 @@ class Fedora4ApiA extends FedoraApiA {
     $response['content'] = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
-
-
-    $return_array = array('objLabel' => 'Default Label', 'objState' => 'A');
+    $return_array = array('objState' => 'A');
+    if (isset($object['http://purl.org/dc/terms/title'])) {
+      $temp = array('objLabel' => $object['http://purl.org/dc/terms/title']);
+      $return_array = array_merge($temp, $return_array);
+    }
+    else {
+      $temp = array('objLabel' => 'Defualt Label');
+      $return_array = array_merge($temp, $return_array);
+    }
 
     if (isset($object['createdBy'])) {
       $temp = array('objOwnerId' => $object['createdBy']);
@@ -185,7 +192,7 @@ class Fedora4ApiA extends FedoraApiA {
       $return_array = array_merge($temp, $return_array);
     }
 
-    $temp = array('objModels' => array('Islandora Collection Content Model'));
+    $temp = array('objModels' => array('info:fedora/islandora:collectionCModel'));
     $return_array = array_merge($temp, $return_array);
     if (isset($object['lastModified'])) {
       $temp = array('objLastModDate' => $object['lastModified']);
@@ -204,7 +211,6 @@ class Fedora4ApiA extends FedoraApiA {
       $temp = array('objCreateDate' => '1900-01-01T00:00:00.000Z');
       $return_array = array_merge($temp, $return_array);
     }
-
     return $return_array;
   }
 
@@ -228,14 +234,21 @@ class Fedora4ApiA extends FedoraApiA {
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
     $out = array();
-    if (isset($object['datastreams'])) {
-      foreach ($object['datastreams'] as $ds) {
-        $out[$ds['id']] = array(
+    if (isset($object['http://fedora.info/definitions/v4/repository#hasChild'])) {
+      $apim = new Fedora4ApiM($this->connection,  $this->serializer);
+      foreach ($object['http://fedora.info/definitions/v4/repository#hasChild'] as $ds) {
+        $url = $this->connection->buildUrl($request);
+        $length=  strlen($url)+1;
+        $dsid = substr($ds, $length);
+     
+        $datastream = $apim->getDatastream($pid,$dsid);
+        $out[$dsid] = array(
           'label' => 'Default Label',
-          'mimetype' => $ds['content']['mimeType'],
+          'mimetype' => '',
         );
       }
     }
+    $out=array();
     return $out;
   }
 
@@ -286,11 +299,10 @@ class Fedora4ApiM extends FedoraApiM {
     $options = array();
     $this->sqarqlUpdate($pid, $query, $options);
     //get propeties and get dc
-    $dcxml = "<oai_dc:dc xmlns:oai_dc=\"http://www.openarchives.org/OAI/2.0/oai
-        _dc/\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:xsi=\"http://
-        www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.ope
-        narchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc
-        .xsd\">\n";
+    $dcxml = "<oai_dc:dc xmlns:oai_dc=\"http://www.openarchives.org/OAI/2.0/oai_dc/\" 
+      xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" 
+      xsi:schemaLocation=\"http://www.openarchives.org/OAI/2.0/oai_dc/ 
+      http://www.openarchives.org/OAI/2.0/oai_dc.xsd\">";
     if ($title) {
       $dcxml.="<dc:title>$title</dc:title>\n";
     }
@@ -298,7 +310,7 @@ class Fedora4ApiM extends FedoraApiM {
     $this->addDatastream($pid, 'DC', 'string', $dcxml, NULL);
   }
 
-  public function sqarqlUpdate($pid, $query, $options) {
+  public function sqarqlUpdate($pid, $query, $options=  array()) {
     $result = $this->connection->postRequest("/$pid", 'string', $query, 'application/sparql-update', $options);
     $pidlenth = strlen($pid);
     $deletelenth =$pidlenth+4;
@@ -316,10 +328,7 @@ class Fedora4ApiM extends FedoraApiM {
    *          'logMessage'
    */
   public function addDatastream($pid, $dsid, $type, $file, $params) {
-    //$pid = urlencode($pid);
-    //$dsid = urlencode($dsid);
     $request = "/$pid/$dsid";
-
     $seperator = '?';
     switch (strtolower($type)) {
       case 'file':
@@ -330,18 +339,40 @@ class Fedora4ApiM extends FedoraApiM {
         break;
     }
     $this->connection->addParam($request, $seperator, 'mixin', 'fedora:datastream');
-
     $response = $this->connection->postRequest($request, $type, $file,'text/html',NULL);
+    
+    //add Params
+    foreach ($params as $param => $value) {
+      $url = $this->connection->buildUrl("/$pid/$dsid");
+      $query = "PREFIX fedora: <http://fedora.info/definitions/v4/rest-api#>\n
+      INSERT {<$url> fedora:$param \"$value\"} WHERE {}";
+      $this->sqarqlUpdate($pid, $query);
+    }
     return $this->getDatastream($pid, $dsid, null);
   }
-
+  
   /**
    * Not implemented.
    *
    * @todo Implement.
    */
-  public function addRelationship($pid, $relationship, $is_literal, $datatype = NULL) {
-    trigger_error("TODO Implement this function.", E_USER_NOTICE);
+  public function addRelationship($pid, $relationship, $is_literal=false, $datatype = NULL) {
+    if (!isset($relationship['predicate'])) {
+      throw new RepositoryBadArguementException('Relationship array must contain a predicate element');
+    }
+    if (!isset($relationship['object'])) {
+      throw new RepositoryBadArguementException('Relationship array must contain a object element');
+    }
+    $request = "/$pid";
+    $url =  $this->connection->buildUrl($request);
+    $predicate = $relationship['predicate'];
+    $object = $relationship['object'];
+    $query = "PREFIX fedorarelsext: <http://fedora.info/definitions/v4/rels-ext#>\n
+      INSERT {<$url> fedorarelsext:$predicate \"info:fedora/$object\"} WHERE {}";
+    $this->sqarqlUpdate($pid,$query);
+    $query = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n
+      INSERT {<$url> rdf:resource \"info:fedora/$object\"} WHERE {}";
+    $this->sqarqlUpdate($pid,$query);
   }
 
   /**
@@ -367,27 +398,22 @@ class Fedora4ApiM extends FedoraApiM {
     //$pid = urlencode($pid);
     //$dsid = urlencode($dsid);
     $request = "/{$pid}/$dsid";
-    //echo $request;
     $options['headers_only'] = TRUE;
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
-    //echo "response:".$response['content']."\n";
     $responseArray = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $id = str_replace('%3A', ':', $id);
-    //echo $id."\n";
-    // print_r($responseArray);
     $ds = $this->serializer->getNode($id, $responseArray);
-    //print_r($ds);
-    return array(
+    $return_array=array(
       // Datastream Labels are not implemented yet.
       'dsLabel' => 'Default Label',
       // Versioning doesn't work currently.
       'dsVersionID' => "$dsid.0",
-      'dsCreateDate' => $ds['created'],
+      'dsCreateDate' => $ds['http://fedora.info/definitions/v4/repository#created'],
       // Datastream state not implemented yet.
       'dsState' => 'A',
-      //'dsMIME' => $ds['content']['mimeType'],
+      
       // Format URI is no longer supported.
       'dsFormatURI' => '',
       // Control Group is no longer supported.
@@ -407,6 +433,15 @@ class Fedora4ApiM extends FedoraApiM {
       // No message system for versions at the moment.
       'dsLogMessage' => '',
     );
+    $this->getRelationships($pid);
+    if(isset($ds['http://fedora.info/definitions/v4/rest-api#mimeType']))
+    {
+      $return_array['dsMIME'] = $ds['http://fedora.info/definitions/v4/rest-api#mimeType'];
+    }
+    else {
+      $return_array['dsMIME'] = 'application/rdf+xml';
+    }
+    return $return_array;
   }
 
   /**
@@ -456,8 +491,23 @@ class Fedora4ApiM extends FedoraApiM {
    * Will implement as jcr:properties?
    */
   public function getRelationships($pid, $relationship = array()) {
-    // Doesn't seem to be used by islandora proper.
-    trigger_error("TODO implement.", E_USER_NOTICE);
+    $request = "/{$pid}";
+    $options['headers'] = array('Accept: application/rdf+json');
+    $response = $this->connection->getRequest($request, $options);
+    $response['content'] = json_decode($response['content'], TRUE);
+    $id = $this->connection->buildUrl($request);
+    $object = $this->serializer->getNode($id, $response['content']);
+    $relationship = array();
+    foreach ($object as $key => $values) {
+      if (preg_match('.rels-ext.', $key)) {
+        $predicate = substr($key, strpos($key, 'rels-ext#') + strlen('rels-ext#'));
+        foreach($values as $value)
+        {
+        $relationship[] = array($predicate => $value);
+        }
+      }
+    }
+    return $relationship;
   }
 
   /**
@@ -530,7 +580,9 @@ class Fedora4ApiM extends FedoraApiM {
     }
     $this->generateDC($pid,$label);
     foreach ($datastreams as $dsid => $ds) {
-      $params = array();
+      $params = array(
+        'mimeType' => $ds['mimeType'],
+      );
       $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $params);
     }
     return $response['content'];
@@ -559,8 +611,15 @@ class Fedora4ApiM extends FedoraApiM {
   public function rollbackTransaction($transactionID) {
     $request = "/tx:{$transactionID}/fcr:tx/fcr:rollback";
     $this->connection->postRequest($request, 'none');
+  } 
+  
+  
+  public function registerNamespace($prefix,$uri)
+  {
+    $query="INSERT {<$uri> <http://purl.org/vocab/vann/preferredNamespacePrefix>
+      \"$prefix\"} WHERE {}";
+    $this->sqarqlUpdate('',$query);
   }
-
   /**
    * Properties aside from content are just ignored for the moment.
    *
