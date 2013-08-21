@@ -240,15 +240,15 @@ class Fedora4ApiA extends FedoraApiA {
         $url = $this->connection->buildUrl($request);
         $length=  strlen($url)+1;
         $dsid = substr($ds, $length);
-     
+      
         $datastream = $apim->getDatastream($pid,$dsid);
+ 
         $out[$dsid] = array(
-          'label' => 'Default Label',
-          'mimetype' => '',
+          'label' => $datastream['dsLabel'],
+          'mimetype' => $datastream['dsMIME'],
         );
       }
     }
-    $out=array();
     return $out;
   }
 
@@ -501,9 +501,10 @@ class Fedora4ApiM extends FedoraApiM {
     foreach ($object as $key => $values) {
       if (preg_match('.rels-ext.', $key)) {
         $predicate = substr($key, strpos($key, 'rels-ext#') + strlen('rels-ext#'));
-        foreach($values as $value)
-        {
-        $relationship[] = array($predicate => $value);
+        if (is_array($values)) {
+          foreach ($values as $value) {
+            $relationship[] = array($predicate => $value);
+          }
         }
       }
     }
