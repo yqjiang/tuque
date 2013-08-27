@@ -126,10 +126,11 @@ class Fedora4ApiA extends FedoraApiA {
    * the version ID and then another to getVersions for now just get the
    * latest.
    */
-  public function getDatastreamDissemination($pid, $dsid, $as_of_date_time = NULL, $file = NULL) {
-    //$pid = urlencode($pid);
-    //$dsid = urlencode($dsid);
+  public function getDatastreamDissemination($pid, $dsid, $as_of_date_time = NULL, $file = NULL, $param = array()) {
     $request = "/$pid/$dsid/fcr:content";
+    if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
     $response = $this->connection->getRequest($request, array('file' => $file));
     $response = $this->serializer->getDatastreamDissemination($response, $file);
     return $response;
@@ -160,8 +161,7 @@ class Fedora4ApiA extends FedoraApiA {
    * the version ID and then another to getVersions for now just get the
    * latest.
    */
-  public function getObjectProfile($pid, $as_of_date_time = NULL, $params = array()) {
-    //$pid = urlencode($pid);
+  public function getObjectProfile($pid, $as_of_date_time = NULL, $params = array()) {;
     $request = "/{$pid}";
     
     if (isset($params['txID'])) {
@@ -223,7 +223,6 @@ class Fedora4ApiA extends FedoraApiA {
    * latest.
    */
   public function listDatastreams($pid, $as_of_date_time = NULL,$params = array()) {
-    //$pid = urlencode($pid);
     $request = "/{$pid}";
     if (isset($params['txID'])) {
       $request = "/tx:" . $params['txID'] . $request;
@@ -329,6 +328,9 @@ class Fedora4ApiM extends FedoraApiM {
    */
   public function addDatastream($pid, $dsid, $type, $file, $params) {
     $request = "/$pid/$dsid";
+    if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
     $seperator = '?';
     switch (strtolower($type)) {
       case 'file':
@@ -395,9 +397,11 @@ class Fedora4ApiM extends FedoraApiM {
    * See add Datastream for what is stubbed etc.
    */
   public function getDatastream($pid, $dsid, $params = array()) {
-    //$pid = urlencode($pid);
-    //$dsid = urlencode($dsid);
+    
     $request = "/{$pid}/$dsid";
+     if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
     $options['headers_only'] = TRUE;
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
@@ -579,6 +583,9 @@ class Fedora4ApiM extends FedoraApiM {
     {
       $label = $params['label'];
     }
+        else {
+    $label=NULL;  
+    }
     $this->generateDC($pid,$label);
     foreach ($datastreams as $dsid => $ds) {
       $params = array(
@@ -591,7 +598,7 @@ class Fedora4ApiM extends FedoraApiM {
 
   /**
    * 
-   * @return s
+   * @return transaction ID
    */
   public function addTransaction() {
     //post transactions
@@ -666,9 +673,13 @@ class Fedora4ApiM extends FedoraApiM {
    * No longer returns the timestamps of the purged datastreams.
    */
   public function purgeDatastream($pid, $dsid, $params = array()) {
+    
     $pid = urlencode($pid);
     $dsid = urlencode($dsid);
     $request = "/{$pid}/{$dsid}";
+     if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
     $this->connection->deleteRequest($request);
     // @todo The returned timestamps don't seem to ever get used, so we'll
     // ignore them for now.
@@ -680,6 +691,9 @@ class Fedora4ApiM extends FedoraApiM {
   public function purgeObject($pid, $log_message = NULL) {
     $pid = urlencode($pid);
     $request = "/{$pid}";
+     if (isset($params['txID'])) {
+      $request = "/tx:" . $params['txID'] . $request;
+    }
     $this->connection->deleteRequest($request);
     // @todo The returned timestamps don't seem to ever get used, so we'll
     // ignore them for now.
