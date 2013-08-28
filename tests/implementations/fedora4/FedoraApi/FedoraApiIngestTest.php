@@ -46,6 +46,7 @@ class FedoraApi4IngestTest extends PHPUnit_Framework_TestCase {
   public function testIngestNoPid() {
 
   }
+  
   public function testGenerateDC() {
     $string = FedoraTestHelpers::randomString(10);
     $expected_pid = "test:$string";
@@ -64,13 +65,13 @@ class FedoraApi4IngestTest extends PHPUnit_Framework_TestCase {
     $actual_pid = substr($result['content'], 1);
     $this->pid[]=$actual_pid;
     $label = FedoraTestHelpers::randomString(10);
-    $dc_datastream = $this->apim->generateDC($actual_pid,$label);
+    $dc_datastream = $this->apim->generateDC($actual_pid,array('label'=>$label));
     $object =  $this->apia->getObjectProfile($actual_pid);
     $this->assertEquals($object['objLabel'],$label);
 
   } 
 
-
+  
   
   public function testIngestRandomPid() {
     $string = FedoraTestHelpers::randomString(10);
@@ -81,36 +82,38 @@ class FedoraApi4IngestTest extends PHPUnit_Framework_TestCase {
   }
   
   
-  public function testIngestWithTransaction()
-  {
+  public function testIngestWithTransaction() {
     $string1 = FedoraTestHelpers::randomString(10);
     $expected_pid = "test:$string1";
     $txid = $this->apim->addTransaction();
-    $actual_pid =  $this->apim->ingest(array('pid'=>"test:$string1",'txID'=>$txid));
+    $actual_pid = $this->apim->ingest(array('pid' => "test:$string1", 'txID' => $txid));
     $this->apim->commitTransaction($txid);
-    $object =  $this->apia->getObjectProfile($actual_pid);
-    $this->assertEquals($object['objLabel'],'Defualt Label');
-    
+    $object = $this->apia->getObjectProfile($actual_pid);
+    $this->assertEquals($object['objLabel'], 'Defualt Label');
+
     $string2 = FedoraTestHelpers::randomString(10);
     $expected_pid2 = "test:$string2";
     $txid = $this->apim->addTransaction();
-    $actual_pid2 =  $this->apim->ingest(array('pid'=>"test:$string2",'txID'=>$txid));
-    echo $txid;
+
+    $actual_pid2 = $this->apim->ingest(array('pid' => "test:$string2", 'txID' => $txid));
     $this->apim->rollbackTransaction($txid);
-    $object2 =  $this->apia->getObjectProfile($actual_pid2);
-    print_r($object2);
+    $message = '';
+    try {
+      $object2 = $this->apia->getObjectProfile($actual_pid2);
+    } catch (Exception $e)
+    {
+      $message = $e->getMessage();
+    }
+    $this->assertEquals($message, 'Not Found');
   }
-/*
+
   public function testIngestLabel() {
     $string = FedoraTestHelpers::randomString(10);
     $pid = "test:$string";
     $expected_label = FedoraTestHelpers::randomString(15);
     $pid = $this->apim->ingest(array('pid' => $pid, 'label' => $expected_label));
     $this->pids[] = $pid;
-    $results = $this->apia->findObjects('query', "pid=$pid", NULL, array('pid', 'label'));
-    $this->assertEquals(1, count($results['results']));
-    $this->assertEquals($pid, $results['results'][0]['pid']);
-    $this->assertEquals($expected_label, $results['results'][0]['label']);
+    $object = $this->apia->getObjectProfile($pid);
+    $this->assertEquals($object['objLabel'], $expected_label);
   }
-*/
 }

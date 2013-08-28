@@ -492,6 +492,7 @@ class CurlConnection extends HttpConnection {
    * @see HttpConnection::postRequest
    */
   public function postRequest($url, $type = 'none', $data = NULL, $content_type = NULL, $options = array()) {
+    $this->unallocateCurlContext();
     $this->setupCurlContext($url);
     //curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
     //curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);

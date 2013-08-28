@@ -285,7 +285,12 @@ class Fedora4ApiM extends FedoraApiM {
     $this->serializer = $serializer;
   }
   
-  public function generateDC($pid, $title = NULL) {
+  public function generateDC($pid, $params=array()) {
+    $title=null;
+    if(isset($params['label']))
+    {
+      $title = $params['label'];
+    }
     //add prorperties
     $url = $this->connection->buildUrl("/$pid");
     $query = "PREFIX dc: <http://purl.org/dc/terms/> \n
@@ -295,11 +300,16 @@ class Fedora4ApiM extends FedoraApiM {
     }
     $query.= "}\nWHERE {}\n";
     $options = array();
-    $result = $this->connection->postRequest("/$pid", 'string', $query, 'application/sparql-update', $options);
+    $request="/$pid";
+    if(isset($params['txID']))
+    {
+      $request="/tx:".$params['txID'].$request;
+    }
+    $result = $this->connection->postRequest($request, 'string', $query, 'application/sparql-update', $options);
     $pidlenth = strlen($pid);
     $deletelenth =$pidlenth+4;
     $purgeurl = substr($result['content'],0,$deletelenth);
-    $result = $this->purgeObject($purgeurl);
+    $result = $this->purgeObject($purgeurl,NULL,$params);
     //get propeties and get dc
     $dcxml = "<oai_dc:dc xmlns:oai_dc=\"http://www.openarchives.org/OAI/2.0/oai_dc/\" 
       xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" 
@@ -309,8 +319,8 @@ class Fedora4ApiM extends FedoraApiM {
       $dcxml.="<dc:title>$title</dc:title>\n";
     }
     $dcxml.="<dc:identifier>$pid</dc:identifier>\n</oai_dc:dc>";
-    $response = $this->addDatastream($pid, 'DC', 'string', $dcxml, array());
-    return $this->getDatastream($pid,'DC');
+    $response = $this->addDatastream($pid, 'DC', 'string', $dcxml, $params);
+    return $this->getDatastream($pid,'DC',$params);
   }
 
   /**
@@ -338,7 +348,7 @@ class Fedora4ApiM extends FedoraApiM {
     }
     $this->connection->addParam($request, $seperator, 'mixin', 'fedora:datastream');
     $response = $this->connection->postRequest($request, $type, $file,'text/html',NULL);
-    return $this->getDatastream($pid, $dsid, null);
+    return $this->getDatastream($pid, $dsid, $params);
   }
   
   /**
@@ -397,12 +407,13 @@ class Fedora4ApiM extends FedoraApiM {
     $id = $this->connection->buildUrl($request);
     $id = str_replace('%3A', ':', $id);
     $ds = $this->serializer->getNode($id, $responseArray);
+   
     $return_array=array(
       // Datastream Labels are not implemented yet.
       'dsLabel' => 'Default Label',
       // Versioning doesn't work currently.
       'dsVersionID' => "$dsid.0",
-      'dsCreateDate' => $ds['http://fedora.info/definitions/v4/repository#created'],
+      //'dsCreateDate' => $ds['http://fedora.info/definitions/v4/repository#created'],
       // Datastream state not implemented yet.
       'dsState' => 'A',
       
@@ -425,7 +436,11 @@ class Fedora4ApiM extends FedoraApiM {
       // No message system for versions at the moment.
       'dsLogMessage' => '',
     );
-    $this->getRelationships($pid);
+    if (isset($ds['http://fedora.info/definitions/v4/repository#created']))
+    {
+      $return_array['dsCreateDate'] = $ds['http://fedora.info/definitions/v4/repository#created'];
+    }
+   // $this->getRelationships($pid);
     if(isset($ds['http://fedora.info/definitions/v4/rest-api#mimeType']))
     {
       $return_array['dsMIME'] = $ds['http://fedora.info/definitions/v4/rest-api#mimeType'];
@@ -571,16 +586,21 @@ class Fedora4ApiM extends FedoraApiM {
     {
       $label = $params['label'];
     }
-        else {
+    else {
     $label=NULL;  
     }
-    $dc=$this->generateDC($pid,$label);
-    foreach ($datastreams as $dsid => $ds) {
-      $params = array(
+ 
+    $dc_params=array('label'=>$label);
+    if (isset($params['txID'])) {
+      $dc_params['txID']=$params['txID'];
+    }
+    $dc=$this->generateDC($pid,$dc_params);
+ /*   foreach ($datastreams as $dsid => $ds) {
+      $ds_params = array(
         'mimeType' => $ds['mimeType'],
       );
-      $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $params);
-    }
+      $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $ds_params);
+    }*/
     return $pid;
   }
 
@@ -676,7 +696,7 @@ class Fedora4ApiM extends FedoraApiM {
   /**
    * No longer returns the timestamps of the purged object.
    */
-  public function purgeObject($pid, $log_message = NULL) {
+  public function purgeObject($pid, $log_message = NULL,$params=array()) {
     $pid = urlencode($pid);
     $request = "/{$pid}";
      if (isset($params['txID'])) {
