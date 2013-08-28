@@ -4,10 +4,11 @@
  * A set of test classes that test the implementations/fedora3/FedoraApi.php file
  */
 
-require_once 'RepositoryFactory.php';
+require_once 'implementations/fedora4/FedoraApi.php';
+require_once 'implementations/fedora4/FedoraApiSerializer.php';
 require_once 'tests/TestHelpers.php';
 
-class FedoraApiIngestTest extends PHPUnit_Framework_TestCase {
+class FedoraApi4IngestTest extends PHPUnit_Framework_TestCase {
   protected $pids = array();
   protected $files = array();
 
@@ -41,112 +42,68 @@ class FedoraApiIngestTest extends PHPUnit_Framework_TestCase {
     $this->assertArrayHasKey('repositoryVersion', $describe);
     $this->assertEquals($describe['repositoryVersion'],'4.0.0');
   }
-/*
-  public function testIngestNoPid() {
-    $pid = $this->apim->ingest();
-    $this->pids[] = $pid;
-    //find did not implement
-//    $results = $this->apia->findObjects('query', "pid=$pid");
-//    $this->assertEquals(1, count($results['results']));
-//    $this->assertEquals($pid, $results['results'][0]['pid']);
-  }
   
-  //currentlly have problem on fedora side
-/*
+  public function testIngestNoPid() {
+
+  }
+  public function testGenerateDC() {
+    $string = FedoraTestHelpers::randomString(10);
+    $expected_pid = "test:$string";
+    $result = $this->apim->connection->postRequest("/$expected_pid");
+    $actual_pid = substr($result['content'], 1);
+    $this->pid[] = $actual_pid;
+    $dc_datastream = $this->apim->generateDC($actual_pid);
+    $object =  $this->apia->getObjectProfile($actual_pid);
+    $this->assertEquals($object['objLabel'],'Defualt Label');
+
+  }
+  public function testGenerateDCWithLabel() {
+    $string = FedoraTestHelpers::randomString(10);
+    $expected_pid = "test:$string";
+    $result=$this->apim->connection->postRequest("/$expected_pid");
+    $actual_pid = substr($result['content'], 1);
+    $this->pid[]=$actual_pid;
+    $label = FedoraTestHelpers::randomString(10);
+    $dc_datastream = $this->apim->generateDC($actual_pid,$label);
+    $object =  $this->apia->getObjectProfile($actual_pid);
+    $this->assertEquals($object['objLabel'],$label);
+
+  } 
+
+
+  
   public function testIngestRandomPid() {
-    //$string1 = FedoraTestHelpers::randomString(10);
-    $string2 = FedoraTestHelpers::randomString(10);
-    $expected_pid = "test:$string2";
+    $string = FedoraTestHelpers::randomString(10);
+    $expected_pid = "test:$string";
     $actual_pid = $this->apim->ingest(array('pid' => $expected_pid));
     $this->pids[] = $actual_pid;
     $this->assertEquals($expected_pid, $actual_pid);
-  //  $results = $this->apia->findObjects('query', "pid=$expected_pid");
- //   $this->assertEquals(1, count($results['results']));
- //   $this->assertEquals($expected_pid, $results['results'][0]['pid']);
-  }*/
+  }
+  
   
   public function testIngestWithTransaction()
   {
-    $string = FedoraTestHelpers::randomString(10);
-    $expected_pid = "test:$string";
+    $string1 = FedoraTestHelpers::randomString(10);
+    $expected_pid = "test:$string1";
     $txid = $this->apim->addTransaction();
-    echo $txid;
-    $pid =  $this->apim->ingest(array('pid'=>"test:$string",'txID'=>$txid));
-    echo $pid;
+    $actual_pid =  $this->apim->ingest(array('pid'=>"test:$string1",'txID'=>$txid));
     $this->apim->commitTransaction($txid);
+    $object =  $this->apia->getObjectProfile($actual_pid);
+    $this->assertEquals($object['objLabel'],'Defualt Label');
+    
+    $string2 = FedoraTestHelpers::randomString(10);
+    $expected_pid2 = "test:$string2";
+    $txid = $this->apim->addTransaction();
+    $actual_pid2 =  $this->apim->ingest(array('pid'=>"test:$string2",'txID'=>$txid));
+    echo $txid;
+    $this->apim->rollbackTransaction($txid);
+    $object2 =  $this->apia->getObjectProfile($actual_pid2);
+    print_r($object2);
   }
 /*
- * not implemented
- */
-  /*
-  public function testIngestStringFoxml() {
-    $string1 = FedoraTestHelpers::randomString(10);
-    $string2 = FedoraTestHelpers::randomString(10);
-    $expected_pid = "test:$string2";
-    $expected_label = FedoraTestHelpers::randomString(15);
-    $foxml = <<<FOXML
-<?xml version="1.0" encoding="UTF-8"?>
-<foxml:digitalObject
-  xmlns:foxml="info:fedora/fedora-system:def/foxml#"
-  xmlns="info:fedora/fedora-system:def/foxml#"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  VERSION="1.1"
-  PID="$expected_pid"
-  xsi:schemaLocation="info:fedora/fedora-system:def/foxml#
-  http://www.fedora.info/definitions/1/0/foxml1-1.xsd">
-  <foxml:objectProperties>
-    <foxml:property NAME="info:fedora/fedora-system:def/model#state" VALUE="A"/>
-    <foxml:property NAME="info:fedora/fedora-system:def/model#label" VALUE="$expected_label"/>
-  </foxml:objectProperties>
-</foxml:digitalObject>
-FOXML;
-
-    $actual_pid = $this->apim->ingest(array('string' => $foxml));
-    $this->pids[] = $actual_pid;
-    $this->assertEquals($expected_pid, $actual_pid);
-    $results = $this->apia->findObjects('query', "pid=$expected_pid", NULL, array('pid', 'label'));
-    $this->assertEquals(1, count($results['results']));
-    $this->assertEquals($expected_pid, $results['results'][0]['pid']);
-    $this->assertEquals($expected_label, $results['results'][0]['label']);
-  }
-
-  public function testIngestFileFoxml() {
-    $file_name = tempnam(sys_get_temp_dir(),'fedora_fixture');
-    $string1 = FedoraTestHelpers::randomString(10);
-    $string2 = FedoraTestHelpers::randomString(10);
-    $expected_pid = "$string1:$string2";
-    $expected_label = FedoraTestHelpers::randomString(15);
-    $foxml = <<<FOXML
-<?xml version="1.0" encoding="UTF-8"?>
-<foxml:digitalObject
-  xmlns:foxml="info:fedora/fedora-system:def/foxml#"
-  xmlns="info:fedora/fedora-system:def/foxml#"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  VERSION="1.1"
-  PID="$expected_pid"
-  xsi:schemaLocation="info:fedora/fedora-system:def/foxml#
-  http://www.fedora.info/definitions/1/0/foxml1-1.xsd">
-  <foxml:objectProperties>
-    <foxml:property NAME="info:fedora/fedora-system:def/model#label" VALUE="$expected_label"/>
-  </foxml:objectProperties>
-</foxml:digitalObject>
-FOXML;
-    file_put_contents($file_name, $foxml);
-    $this->files[] = $file_name;
-
-    $actual_pid = $this->apim->ingest(array('file' => $file_name));
-    $this->pids[] = $actual_pid;
-    $this->assertEquals($expected_pid, $actual_pid);
-    $results = $this->apia->findObjects('query', "pid=$expected_pid", NULL, array('pid', 'label'));
-    $this->assertEquals(1, count($results['results']));
-    $this->assertEquals($expected_pid, $results['results'][0]['pid']);
-    $this->assertEquals($expected_label, $results['results'][0]['label']);
-  }
-
   public function testIngestLabel() {
-    $string1 = FedoraTestHelpers::randomString(10);
-    $string2 = FedoraTestHelpers::randomString(10);
-    $pid = "$string1:$string2";
+    $string = FedoraTestHelpers::randomString(10);
+    $pid = "test:$string";
     $expected_label = FedoraTestHelpers::randomString(15);
     $pid = $this->apim->ingest(array('pid' => $pid, 'label' => $expected_label));
     $this->pids[] = $pid;
@@ -155,75 +112,5 @@ FOXML;
     $this->assertEquals($pid, $results['results'][0]['pid']);
     $this->assertEquals($expected_label, $results['results'][0]['label']);
   }
-
-  public function testIngestLogMessage() {
-    $string1 = FedoraTestHelpers::randomString(10);
-    $string2 = FedoraTestHelpers::randomString(10);
-    $pid = "$string1:$string2";
-    $expected_log_message = FedoraTestHelpers::randomString(15);
-    $pid = $this->apim->ingest(array('pid' => $pid, 'logMessage' => $expected_log_message));
-    $this->pids[] = $pid;
-
-    // Check the audit trail.
-    $xml = $this->apim->export($pid);
-    $dom = new DomDocument();
-    $dom->loadXml($xml);
-    $xpath = new DOMXPath($dom);
-    $xpath->registerNamespace('audit', 'info:fedora/fedora-system:def/audit#');
-    $result = $xpath->query('//audit:action[.="ingest"]/../audit:justification');
-    $this->assertEquals(1, $result->length);
-    $tag = $result->item(0);
-    $this->assertEquals($expected_log_message, $tag->nodeValue);
-  }
-
-  public function testIngestNamespace() {
-    $expected_namespace = FedoraTestHelpers::randomString(10);
-    $pid = $this->apim->ingest(array('namespace' => $expected_namespace));
-    $this->pids[] = $pid;
-    $pid_parts = explode(':', $pid);
-    $this->assertEquals($expected_namespace, $pid_parts[0]);
-  }
 */
-  /**
-   * @todo fix this test
-   */
-  /*
-  public function testIngestOwnerId() {
-    $this->markTestIncomplete();
-    $string1 = FedoraTestHelpers::randomString(10);
-    $string2 = FedoraTestHelpers::randomString(10);
-    $pid = "$string1:$string2";
-    $expected_owner = FedoraTestHelpers::randomString(15);
-    $pid = $this->apim->ingest(array('pid' => $pid, 'ownerId' => $expected_owner));
-    $this->pids[] = $pid;
-    $results = $this->apia->findObjects('query', "pid=$pid", NULL, array('pid', 'ownerId'));
-    $this->assertEquals(1, count($results['results']));
-    $this->assertEquals($pid, $results['results'][0]['pid']);
-    $this->assertEquals($expected_owner, $results['results'][0]['ownerId']);
-  }
-
-  /**
-   * @todo finish this test
-   * @todo we need some documents with different character encoding for this
-   *   to work.
-   */
-  /*
-  public function testIngestEncoding() {
-    $this->markTestIncomplete();
-    $string1 = FedoraTestHelpers::randomString(10);
-    $string2 = FedoraTestHelpers::randomString(10);
-    $expected_pid = "$string1:$string2";
-
-    $actual_pid = $this->apim->ingest(array('string' => $foxml));
-    $this->pids[] = $actual_pid;
-    $this->assertEquals($expected_pid, $actual_pid);
-  }
-
-  /**
-   * we need some files to ingest to test this
-   */
-  /*
-  public function testIngestFormat() {
-    $this->markTestIncomplete();
-  }*/
 }

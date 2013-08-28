@@ -167,7 +167,6 @@ class Fedora4ApiA extends FedoraApiA {
     if (isset($params['txID'])) {
       $request = "/tx:" . $params['txID'] . $request;
     }
-    
     $options['headers'] = array('Accept: application/rdf+json');
     $response = $this->connection->getRequest($request, $options);
     $response['content'] = json_decode($response['content'], TRUE);
@@ -233,7 +232,7 @@ class Fedora4ApiA extends FedoraApiA {
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
     $out = array();
-    if (isset($object['http://fedora.info/definitions/v4/repository#hasChild'])) {
+    if (is_array($object['http://fedora.info/definitions/v4/repository#hasChild'])) {
       $apim = new Fedora4ApiM($this->connection,  $this->serializer);
       foreach ($object['http://fedora.info/definitions/v4/repository#hasChild'] as $ds) {
         $url = $this->connection->buildUrl($request);
@@ -296,7 +295,11 @@ class Fedora4ApiM extends FedoraApiM {
     }
     $query.= "}\nWHERE {}\n";
     $options = array();
-    $this->sqarqlUpdate($pid, $query, $options);
+    $result = $this->connection->postRequest("/$pid", 'string', $query, 'application/sparql-update', $options);
+    $pidlenth = strlen($pid);
+    $deletelenth =$pidlenth+4;
+    $purgeurl = substr($result['content'],0,$deletelenth);
+    $result = $this->purgeObject($purgeurl);
     //get propeties and get dc
     $dcxml = "<oai_dc:dc xmlns:oai_dc=\"http://www.openarchives.org/OAI/2.0/oai_dc/\" 
       xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" 
@@ -306,15 +309,8 @@ class Fedora4ApiM extends FedoraApiM {
       $dcxml.="<dc:title>$title</dc:title>\n";
     }
     $dcxml.="<dc:identifier>$pid</dc:identifier>\n</oai_dc:dc>";
-    $this->addDatastream($pid, 'DC', 'string', $dcxml, NULL);
-  }
-
-  public function sqarqlUpdate($pid, $query, $options=  array()) {
-    $result = $this->connection->postRequest("/$pid", 'string', $query, 'application/sparql-update', $options);
-    $pidlenth = strlen($pid);
-    $deletelenth =$pidlenth+4;
-    $purgeurl = substr($result['content'],0,$deletelenth);
-    $this->purgeObject($purgeurl);
+    $response = $this->addDatastream($pid, 'DC', 'string', $dcxml, array());
+    return $this->getDatastream($pid,'DC');
   }
 
   /**
@@ -342,14 +338,6 @@ class Fedora4ApiM extends FedoraApiM {
     }
     $this->connection->addParam($request, $seperator, 'mixin', 'fedora:datastream');
     $response = $this->connection->postRequest($request, $type, $file,'text/html',NULL);
-    
-    //add Params
-    foreach ($params as $param => $value) {
-      $url = $this->connection->buildUrl("/$pid/$dsid");
-      $query = "PREFIX fedora: <http://fedora.info/definitions/v4/rest-api#>\n
-      INSERT {<$url> fedora:$param \"$value\"} WHERE {}";
-      $this->sqarqlUpdate($pid, $query);
-    }
     return $this->getDatastream($pid, $dsid, null);
   }
   
@@ -586,14 +574,14 @@ class Fedora4ApiM extends FedoraApiM {
         else {
     $label=NULL;  
     }
-    $this->generateDC($pid,$label);
+    $dc=$this->generateDC($pid,$label);
     foreach ($datastreams as $dsid => $ds) {
       $params = array(
         'mimeType' => $ds['mimeType'],
       );
       $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $params);
     }
-    return $response['content'];
+    return $pid;
   }
 
   /**
@@ -613,12 +601,12 @@ class Fedora4ApiM extends FedoraApiM {
 
   public function commitTransaction($transactionID) {
     $request = "/tx:{$transactionID}/fcr:tx/fcr:commit";
-    $this->connection->postRequest($request, 'none');
+    $this->connection->postRequest($request, 'none',NULL,'text/plain');
   }
 
   public function rollbackTransaction($transactionID) {
     $request = "/tx:{$transactionID}/fcr:tx/fcr:rollback";
-    $this->connection->postRequest($request, 'none');
+    $this->connection->postRequest($request, 'none',NULL,'text/plain');
   } 
   
   
@@ -695,8 +683,8 @@ class Fedora4ApiM extends FedoraApiM {
       $request = "/tx:" . $params['txID'] . $request;
     }
     $this->connection->deleteRequest($request);
-    // @todo The returned timestamps don't seem to ever get used, so we'll
-    // ignore them for now.
+   
+    //return $result;
   }
 
   /**

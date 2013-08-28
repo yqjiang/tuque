@@ -7,7 +7,7 @@
 require_once 'RepositoryFactory.php';
 require_once 'tests/TestHelpers.php';
 
-class FedoraApiFindObjectsTest extends PHPUnit_Framework_TestCase {
+class FedoraApi4FindObjectsTest extends PHPUnit_Framework_TestCase {
 
   public $apim;
   public $apia;

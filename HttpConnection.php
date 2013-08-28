@@ -541,8 +541,6 @@ class CurlConnection extends HttpConnection {
       case 'none':
         curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
         curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
-        curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'POST');
-        curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
         curl_setopt(self::$curlContext, CURLOPT_POSTFIELDS, array());
         break;
 
@@ -654,6 +652,7 @@ class CurlConnection extends HttpConnection {
     if ($stdout === NULL) {
       $stdout = fopen('php://stdout', 'w');
     }
+    $this->unallocateCurlContext();
     $this->setupCurlContext($url);
     
     if (isset($options['headers_only']) && $options['headers_only'] === TRUE) {
@@ -715,8 +714,8 @@ class CurlConnection extends HttpConnection {
    * @see HttpConnection::deleteRequest
    */
   function deleteRequest($url) {
+    $this->unallocateCurlContext($url);
     $this->setupCurlContext($url);
-
     curl_setopt(self::$curlContext, CURLOPT_CUSTOMREQUEST, 'DELETE');
 
     // Ugly substitute for a try catch finally block.
