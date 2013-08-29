@@ -499,11 +499,19 @@ class CurlConnection extends HttpConnection {
     if (isset($options['headers'])) {
       //      curl_setopt(self::$curlContext, CURLOPT_HTTPHEADER, $options['headers']);
     }
+
     $temp = tempnam(sys_get_temp_dir(), 'tuque');
     file_put_contents($temp, $data);
     $fp = fopen($temp, 'r');
-
-
+    if (strcasecmp($type, 'file')==0)
+    {
+      $fp =  fopen($data, 'r');
+      if(isset($options['mimeType']))
+      {
+        $content_type=$options['mimeType'];
+      }
+    }
+    
     if ($content_type) {
       $headers = array("Content-Type: $content_type");
     }
@@ -529,7 +537,7 @@ class CurlConnection extends HttpConnection {
         curl_setopt(self::$curlContext, CURLOPT_POST, TRUE);
         curl_setopt(self::$curlContext, CURLOPT_UPLOAD, 1);
         curl_setopt(self::$curlContext, CURLOPT_INFILE, $fp);
-        curl_setopt(self::$curlContext, CURLOPT_INFILESIZE, filesize($temp));
+        curl_setopt(self::$curlContext, CURLOPT_INFILESIZE, filesize($data));
         /*
         if ($content_type) {
           curl_setopt(self::$curlContext, CURLOPT_POSTFIELDS, array('file' => "@$data;type=$content_type"));

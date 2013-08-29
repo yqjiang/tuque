@@ -161,7 +161,7 @@ class Fedora4ApiA extends FedoraApiA {
    * latest.
    */
   public function getObjectProfile($pid, $as_of_date_time = NULL, $params = array()) {
-;
+    ;
     $request = "/{$pid}";
 
     if (isset($params['txID'])) {
@@ -232,14 +232,29 @@ class Fedora4ApiA extends FedoraApiA {
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
     $out = array();
-    if (is_array($object['http://fedora.info/definitions/v4/repository#hasChild'])) {
+    if (isset($object['http://fedora.info/definitions/v4/repository#hasChild'])) {
       $apim = new Fedora4ApiM($this->connection, $this->serializer);
-      foreach ($object['http://fedora.info/definitions/v4/repository#hasChild'] as $ds) {
+      if (is_array($object['http://fedora.info/definitions/v4/repository#hasChild'])) {
+        foreach ($object['http://fedora.info/definitions/v4/repository#hasChild'] as $ds) {
+          $url = $this->connection->buildUrl($request);
+          $length = strlen($url) + 1;
+          $dsid = substr($ds, $length);
+
+          $datastream = $apim->getDatastream($pid, $dsid);
+
+          $out[$dsid] = array(
+            'label' => $datastream['dsLabel'],
+            'mimetype' => $datastream['dsMIME'],
+          );
+        }
+      }
+      else {
+        $ds = $object['http://fedora.info/definitions/v4/repository#hasChild'];
         $url = $this->connection->buildUrl($request);
         $length = strlen($url) + 1;
         $dsid = substr($ds, $length);
-
-        $datastream = $apim->getDatastream($pid, $dsid);
+      
+        $datastream = $apim->getDatastream($pid, $dsid,$params);
 
         $out[$dsid] = array(
           'label' => $datastream['dsLabel'],
@@ -345,7 +360,7 @@ class Fedora4ApiM extends FedoraApiM {
         break;
     }
     $this->connection->addParam($request, $seperator, 'mixin', 'fedora:datastream');
-    $response = $this->connection->postRequest($request, $type, $file, 'text/html', NULL);
+    $response = $this->connection->postRequest($request, $type, $file, 'text/html', $params);
     return $this->getDatastream($pid, $dsid, $params);
   }
 
@@ -542,7 +557,7 @@ class Fedora4ApiM extends FedoraApiM {
           };
       foreach ($children->datastream as $datastream) {
         $dsid = $attribute($datastream, 'ID');
-        // Just grab the first version for now.
+// Just grab the first version for now.
         $version = $datastream->datastreamVersion[0];
         $type = 'none';
         $data = NULL;
@@ -569,7 +584,7 @@ class Fedora4ApiM extends FedoraApiM {
     if (empty($pid)) {
       $pid = isset($params['pid']) ? $params['pid'] : '';
     }
-    // Create the object.
+// Create the object.
     $request = empty($pid) ? "/fcr:new" : "/$pid";
     if (isset($params['txID'])) {
       $request = "/tx:" . $params['txID'] . $request;
@@ -583,12 +598,6 @@ class Fedora4ApiM extends FedoraApiM {
     else {
       $label = NULL;
     }
-
-    $dc_params = array('label' => $label);
-    if (isset($params['txID'])) {
-      $dc_params['txID'] = $params['txID'];
-    }
-    $dc = $this->generateDC($pid, $dc_params);
     foreach ($datastreams as $dsid => $ds) {
       $ds_params = array(
         'mimeType' => $ds['mimeType'],
@@ -597,6 +606,15 @@ class Fedora4ApiM extends FedoraApiM {
         $ds_params['txID'] = $params['txID'];
       }
       $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $ds_params);
+    }
+    try {
+      $dc = $this->getDatastream($pid,'DC');
+    } catch (Exception $e) {
+      $dc_params = array('label' => $label);
+      if (isset($params['txID'])) {
+        $dc_params['txID'] = $params['txID'];
+      }
+      $dc = $this->generateDC($pid, $dc_params);
     }
     return $pid;
   }
