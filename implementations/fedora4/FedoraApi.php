@@ -382,10 +382,12 @@ class Fedora4ApiM extends FedoraApiM {
     $object = $relationship['object'];
     $query = "PREFIX fedorarelsext: <http://fedora.info/definitions/v4/rels-ext#>\n
       INSERT {<$url> fedorarelsext:$predicate \"info:fedora/$object\"} WHERE {}";
-    $this->sqarqlUpdate($pid, $query);
+    $options=array();
+    $result = $this->connection->postRequest($request, 'string', $query, 'application/sparql-update', $options);
     $query = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n
       INSERT {<$url> rdf:resource \"info:fedora/$object\"} WHERE {}";
-    $this->sqarqlUpdate($pid, $query);
+    $result = $this->connection->postRequest($request, 'string', $query, 'application/sparql-update', $options);
+    return $this->getRelationships($pid);
   }
 
   /**
@@ -522,6 +524,10 @@ class Fedora4ApiM extends FedoraApiM {
           foreach ($values as $value) {
             $relationship[] = array($predicate => $value);
           }
+        }
+        else if($values)
+        {
+          $relationship[] = array($predicate => $values);
         }
       }
     }

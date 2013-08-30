@@ -383,5 +383,20 @@ class FedoraApi4FindObjectsTest extends PHPUnit_Framework_TestCase {
     $this->apim->rollbackTransaction($txid);
   }
   
+  function testAddRelationship(){
+    $string1 = FedoraTestHelpers::randomString(10);
+    $expected_pid = "test:$string1";
+    $txid = $this->apim->addTransaction();
+    $actual_pid = $this->apim->ingest(array('pid' => "test:$string1", 'txID' => $txid));
+    $predicate= FedoraTestHelpers::randomString(10);
+    $object= FedoraTestHelpers::randomString(10);
+    $relationship = array('predicate'=>$predicate,'object'=>$object); 
+    $relationships= $this->apim->addRelationship($actual_pid,$relationship);
+    $relationship_array=array(
+      $predicate => "info:fedora/$object",
+    );
+    $this->assertContains($relationship_array,$relationships);
+  }
+  
 
 }
