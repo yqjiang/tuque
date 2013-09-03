@@ -52,18 +52,18 @@ class FedoraApi4IngestTest extends PHPUnit_Framework_TestCase {
     $expected_pid = "test:$string";
     $result = $this->apim->connection->postRequest("/$expected_pid");
     $actual_pid = substr($result['content'], 1);
-    $this->pid[] = $actual_pid;
     $dc_datastream = $this->apim->generateDC($actual_pid);
     $object =  $this->apia->getObjectProfile($actual_pid);
     $this->assertEquals($object['objLabel'],'Defualt Label');
-
+    $this->pids[] = $actual_pid;
   }
+  
   public function testGenerateDCWithLabel() {
     $string = FedoraTestHelpers::randomString(10);
     $expected_pid = "test:$string";
     $result=$this->apim->connection->postRequest("/$expected_pid");
     $actual_pid = substr($result['content'], 1);
-    $this->pid[]=$actual_pid;
+    $this->pids[]=$actual_pid;
     $label = FedoraTestHelpers::randomString(10);
     $dc_datastream = $this->apim->generateDC($actual_pid,array('label'=>$label));
     $object =  $this->apia->getObjectProfile($actual_pid);
@@ -90,7 +90,7 @@ class FedoraApi4IngestTest extends PHPUnit_Framework_TestCase {
     $this->apim->commitTransaction($txid);
     $object = $this->apia->getObjectProfile($actual_pid);
     $this->assertEquals($object['objLabel'], 'Defualt Label');
-
+    $this->pids[] = $actual_pid;
     $string2 = FedoraTestHelpers::randomString(10);
     $expected_pid2 = "test:$string2";
     $txid = $this->apim->addTransaction();

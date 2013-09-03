@@ -173,43 +173,25 @@ class Fedora4ApiA extends FedoraApiA {
     $id = $this->connection->buildUrl($request);
     $object = $this->serializer->getNode($id, $response['content']);
     $return_array = array('objState' => 'A');
-    if (isset($object['http://purl.org/dc/terms/title'])) {
-      $temp = array('objLabel' => $object['http://purl.org/dc/terms/title']);
-      $return_array = array_merge($temp, $return_array);
+    $return_array['objLabel'] = isset($object['http://purl.org/dc/terms/title']) ? $object['http://purl.org/dc/terms/title'] : 'Defualt Label';
+    $return_array['objOwnerId'] = isset($object['createdBy']) ? $object['createdBy'] : '<unknown>';
+    //read the relashinship 
+    $relationship = array();
+    foreach ($object as $key => $values) {
+      if (preg_match('.rels-ext.', $key)) {
+        $predicate = substr($key, strpos($key, 'rels-ext#') + strlen('rels-ext#'));
+        if (is_array($values) & strcasecmp($predicate, 'hasModel')) {
+          foreach ($values as $value) {
+            $relationship[] = array($value);
+          }
+        } else if ($values & strcasecmp($predicate, 'hasModel')) {
+          $relationship[] = array($values);
+        }
+      }
     }
-    else {
-      $temp = array('objLabel' => 'Defualt Label');
-      $return_array = array_merge($temp, $return_array);
-    }
-
-    if (isset($object['createdBy'])) {
-      $temp = array('objOwnerId' => $object['createdBy']);
-      $return_array = array_merge($temp, $return_array);
-    }
-    else {
-      $temp = array('objOwnerId' => '<unknown>');
-      $return_array = array_merge($temp, $return_array);
-    }
-
-    $temp = array('objModels' => array('info:fedora/islandora:collectionCModel'));
-    $return_array = array_merge($temp, $return_array);
-    if (isset($object['lastModified'])) {
-      $temp = array('objLastModDate' => $object['lastModified']);
-      $return_array = array_merge($temp, $return_array);
-    }
-    else {
-      $temp = array('objLastModDate' => '1900-01-01T00:00:00.000Z');
-      $return_array = array_merge($temp, $return_array);
-    }
-
-    if (isset($object['created'])) {
-      $temp = array('objCreateDate' => $object['created']);
-      $return_array = array_merge($temp, $return_array);
-    }
-    else {
-      $temp = array('objCreateDate' => '1900-01-01T00:00:00.000Z');
-      $return_array = array_merge($temp, $return_array);
-    }
+    $return_array['objModels'] = $relationship;
+    $return_array['objLastModDate']=isset($object['lastModified'])?$object['lastModified']:'1900-01-01T00:00:00.000Z';
+    $return_array['objCreateDate'] = isset($object['created'])?$object['created']:'1900-01-01T00:00:00.000Z';
     return $return_array;
   }
 
@@ -247,14 +229,13 @@ class Fedora4ApiA extends FedoraApiA {
             'mimetype' => $datastream['dsMIME'],
           );
         }
-      }
-      else {
+      } else {
         $ds = $object['http://fedora.info/definitions/v4/repository#hasChild'];
         $url = $this->connection->buildUrl($request);
         $length = strlen($url) + 1;
         $dsid = substr($ds, $length);
-      
-        $datastream = $apim->getDatastream($pid, $dsid,$params);
+
+        $datastream = $apim->getDatastream($pid, $dsid, $params);
 
         $out[$dsid] = array(
           'label' => $datastream['dsLabel'],
@@ -299,7 +280,19 @@ class Fedora4ApiM extends FedoraApiM {
     $this->connection = $connection;
     $this->serializer = $serializer;
   }
-
+  
+  /**
+   * generate a defult dc datastream for a newly ingested object
+   * 
+   * @param String $pid
+   *   The pid of object that should be generated
+   * @param String $params
+   *   current params:
+   *   'label' object label,
+   *   'txid' transaction id (if need)
+   * @return 
+   *   The dc datastream
+   */
   public function generateDC($pid, $params = array()) {
     $title = null;
     if (isset($params['label'])) {
@@ -365,9 +358,24 @@ class Fedora4ApiM extends FedoraApiM {
   }
 
   /**
-   * Not implemented.
+   * Add relation ship to object. The relation ship should be add under the 
+   * namespace 'fedorarelsext'
    *
-   * @todo Implement.
+   * @param String $pid
+   *   The pid of object that should be generated
+   * 
+   * @param Array $relationship
+   *  The relationship that should be added
+   *  Array(
+   *    'predicate'=> predicate,
+   *    'object'=> object
+   *  )
+   * 
+   * @param Boolean is_literal
+   * 
+   * @param String datatype 
+   * @return 
+   *   All relationships belong to the object
    */
   public function addRelationship($pid, $relationship, $is_literal = false, $datatype = NULL) {
     if (!isset($relationship['predicate'])) {
@@ -382,7 +390,7 @@ class Fedora4ApiM extends FedoraApiM {
     $object = $relationship['object'];
     $query = "PREFIX fedorarelsext: <http://fedora.info/definitions/v4/rels-ext#>\n
       INSERT {<$url> fedorarelsext:$predicate \"info:fedora/$object\"} WHERE {}";
-    $options=array();
+    $options = array();
     $result = $this->connection->postRequest($request, 'string', $query, 'application/sparql-update', $options);
     $query = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n
       INSERT {<$url> rdf:resource \"info:fedora/$object\"} WHERE {}";
@@ -453,11 +461,9 @@ class Fedora4ApiM extends FedoraApiM {
     if (isset($ds['http://fedora.info/definitions/v4/repository#created'])) {
       $return_array['dsCreateDate'] = $ds['http://fedora.info/definitions/v4/repository#created'];
     }
-    // $this->getRelationships($pid);
     if (isset($ds['http://fedora.info/definitions/v4/rest-api#mimeType'])) {
       $return_array['dsMIME'] = $ds['http://fedora.info/definitions/v4/rest-api#mimeType'];
-    }
-    else {
+    } else {
       $return_array['dsMIME'] = 'application/rdf+xml';
     }
     return $return_array;
@@ -507,7 +513,13 @@ class Fedora4ApiM extends FedoraApiM {
   }
 
   /**
-   * Will implement as jcr:properties?
+   * Get relationships of an object
+   * 
+   *  @param String $pid
+   *   The pid of object that should be generated 
+   * 
+   *  @return 
+   *   The relationships which was listed under the fedorarelext 
    */
   public function getRelationships($pid, $relationship = array()) {
     $request = "/{$pid}";
@@ -524,9 +536,7 @@ class Fedora4ApiM extends FedoraApiM {
           foreach ($values as $value) {
             $relationship[] = array($predicate => $value);
           }
-        }
-        else if($values)
-        {
+        } else if ($values) {
           $relationship[] = array($predicate => $values);
         }
       }
@@ -549,8 +559,7 @@ class Fedora4ApiM extends FedoraApiM {
     // Process the parameters
     if (isset($params['string'])) {
       $foxml = new SimpleXMLElement($params['string']);
-    }
-    elseif (isset($params['file'])) {
+    } elseif (isset($params['file'])) {
       $foxml = simplexml_load_file($params['file']);
     }
     $datastreams = array();
@@ -570,13 +579,11 @@ class Fedora4ApiM extends FedoraApiM {
         if (isset($version->contentLocation)) {
           $type = 'file';
           $data = $attribute($version->contentLocation, 'REF');
-        }
-        elseif (isset($version->xmlContent)) {
+        } elseif (isset($version->xmlContent)) {
           $type = 'string';
           $children = $version->xmlContent->xpath('*');
           $data = (string) array_pop($children)->asXML();
-        }
-        elseif (isset($version->binaryContent)) {
+        } elseif (isset($version->binaryContent)) {
           $type = 'string';
           $data = (string) $version->binaryContent;
         }
@@ -600,8 +607,7 @@ class Fedora4ApiM extends FedoraApiM {
     $pid = substr($pid, 1);
     if (isset($params['label'])) {
       $label = $params['label'];
-    }
-    else {
+    } else {
       $label = NULL;
     }
     foreach ($datastreams as $dsid => $ds) {
@@ -614,7 +620,7 @@ class Fedora4ApiM extends FedoraApiM {
       $this->addDatastream($pid, $dsid, $ds['type'], $ds['data'], $ds_params);
     }
     try {
-      $dc = $this->getDatastream($pid,'DC');
+      $dc = $this->getDatastream($pid, 'DC');
     } catch (Exception $e) {
       $dc_params = array('label' => $label);
       if (isset($params['txID'])) {
@@ -653,7 +659,12 @@ class Fedora4ApiM extends FedoraApiM {
   public function registerNamespace($prefix, $uri) {
     $query = "INSERT {<$uri> <http://purl.org/vocab/vann/preferredNamespacePrefix>
       \"$prefix\"} WHERE {}";
-    $this->sqarqlUpdate('', $query);
+    $result = $this->connection->postRequest($request, 'string', $query, 'application/sparql-update', $options);
+    if ($result['status'] == '204') {
+      return $prefix;
+    } else {
+      return null;
+    }
   }
 
   /**
@@ -674,15 +685,12 @@ class Fedora4ApiM extends FedoraApiM {
     if (isset($params['dsFile'])) {
       $type = 'file';
       $data = $params['dsFile'];
-    }
-    elseif (isset($params['dsString'])) {
+    } elseif (isset($params['dsString'])) {
       $type = 'string';
       $data = $params['dsString'];
-    }
-    elseif (isset($params['dsLocation'])) {
+    } elseif (isset($params['dsLocation'])) {
       throw new RepositoryBadArguementException("dsLocation is no longer supported");
-    }
-    else {
+    } else {
       $type = 'none';
       $data = NULL;
     }
