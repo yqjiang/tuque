@@ -59,8 +59,7 @@ abstract class AbstractFedoraDatastream extends AbstractDatastream {
     $this->repository = $repository;
     $this->relationships = new $this->fedoraRelsIntClass($this);
   }
-  
-      
+
   /**
    * @see AbstractDatastream::id
    */
