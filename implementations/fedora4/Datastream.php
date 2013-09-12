@@ -297,12 +297,10 @@ class NewFedoraDatastream extends AbstractFedoraDatastream {
     parent::__construct($id, $object, $repository);
     $this->ingested = FALSE;
     $group = $this->validateControlGroup($control_group);
-
     if ($group === FALSE) {
       trigger_error("Invalid control group \"$control_group\", using managed instead.", E_USER_WARNING);
       $group = 'M';
     }
-
     // Set defaults!
     $this->datastreamInfo['dsControlGroup'] = $group;
     $this->datastreamInfo['dsState'] = 'A';

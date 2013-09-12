@@ -222,7 +222,7 @@ class FedoraApi4FindObjectsTest extends PHPUnit_Framework_TestCase {
       '2010-03-13T14:12:59.272Z' => array(
         'DC' => Array(
           'label' => 'Default Label',
-          'mimetype' => 'application/rdf+xml',
+          'mimetype' => 'text/html',
         ),
       ),
     );

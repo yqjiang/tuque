@@ -7,7 +7,7 @@
 set_include_path("sites/all/libraries/tuque/");
 require_once 'AbstractObject.php';
 require_once 'implementations/fedora3/FedoraDate.php';
-require_once 'implementations/fedora3/Datastream.php';
+require_once 'implementations/fedora4/Datastream.php';
 require_once 'implementations/fedora3/FedoraRelationships.php';
 
 /**
@@ -525,7 +525,7 @@ class FedoraObject extends AbstractFedoraObject {
       $datastreams = $this->repository->api->a->listDatastreams($this->id);
       $this->datastreams = array();
       foreach ($datastreams as $key => $value) {
-        $this->datastreams[$key] = new $this->fedoraDatastreamClass($key, $this, $this->repository, array("dsLabel" => $value['label'], "dsMIME" => $value['mimetype']));
+        $this->datastreams[$key] = new $this->fedoraDatastreamClass($key, $this, $this->repository, array("dsLabel" => $value['label'], "dsMIME" => $value['mimetype'],"dsSize"=>$value['size'],"dsSize"=>$value['size'],"dsControlGroup"=>$value['controlGroup'],'dsCreateDate'=>$value['created']));
       }
     }
   }

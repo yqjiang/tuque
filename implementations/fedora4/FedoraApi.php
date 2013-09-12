@@ -161,7 +161,6 @@ class Fedora4ApiA extends FedoraApiA {
    * latest.
    */
   public function getObjectProfile($pid, $as_of_date_time = NULL, $params = array()) {
-    ;
     $request = "/{$pid}";
 
     if (isset($params['txID'])) {
@@ -227,6 +226,9 @@ class Fedora4ApiA extends FedoraApiA {
           $out[$dsid] = array(
             'label' => $datastream['dsLabel'],
             'mimetype' => $datastream['dsMIME'],
+            'controlGroup'=>$datastream['dsControlGroup'],
+            'size'=>$datastream['dsSize'],
+            'created'=>$datastream['dsCreateDate'],
           );
         }
       } else {
@@ -240,6 +242,9 @@ class Fedora4ApiA extends FedoraApiA {
         $out[$dsid] = array(
           'label' => $datastream['dsLabel'],
           'mimetype' => $datastream['dsMIME'],
+          'controlGroup'=>$datastream['dsControlGroup'],
+          'size'=>$datastream['dsSize'],
+          'created'=>$datastream['dsCreateDate'],
         );
       }
     }
@@ -418,7 +423,6 @@ class Fedora4ApiM extends FedoraApiM {
    * See add Datastream for what is stubbed etc.
    */
   public function getDatastream($pid, $dsid, $params = array()) {
-
     $request = "/{$pid}/$dsid";
     if (isset($params['txID'])) {
       $request = "/tx:" . $params['txID'] . $request;
@@ -429,14 +433,12 @@ class Fedora4ApiM extends FedoraApiM {
     $responseArray = json_decode($response['content'], TRUE);
     $id = $this->connection->buildUrl($request);
     $id = str_replace('%3A', ':', $id);
-    $ds = $this->serializer->getNode($id, $responseArray);
-
+    $ds = $this->serializer->getNode($id, $responseArray);  
     $return_array = array(
       // Datastream Labels are not implemented yet.
       'dsLabel' => 'Default Label',
       // Versioning doesn't work currently.
       'dsVersionID' => "$dsid.0",
-      //'dsCreateDate' => $ds['http://fedora.info/definitions/v4/repository#created'],
       // Datastream state not implemented yet.
       'dsState' => 'A',
       // Format URI is no longer supported.
@@ -458,13 +460,22 @@ class Fedora4ApiM extends FedoraApiM {
       // No message system for versions at the moment.
       'dsLogMessage' => '',
     );
+    $request =$request."/fcr:content";
+    $id = $this->connection->buildUrl($request);
+    $id = str_replace('%3A', ':', $id);
+    $ds_content = $this->serializer->getNode($id, $responseArray); 
     if (isset($ds['http://fedora.info/definitions/v4/repository#created'])) {
       $return_array['dsCreateDate'] = $ds['http://fedora.info/definitions/v4/repository#created'];
     }
-    if (isset($ds['http://fedora.info/definitions/v4/rest-api#mimeType'])) {
-      $return_array['dsMIME'] = $ds['http://fedora.info/definitions/v4/rest-api#mimeType'];
+    if (isset($ds_content['http://fedora.info/definitions/v4/repository#mimeType'])) {
+      $return_array['dsMIME'] = $ds_content['http://fedora.info/definitions/v4/repository#mimeType'];
     } else {
       $return_array['dsMIME'] = 'application/rdf+xml';
+    }
+    if (isset($ds_content['http://fedora.info/definitions/v4/rest-api#size'])) {
+      $return_array['dsSize'] = $ds_content['http://fedora.info/definitions/v4/rest-api#size'];
+    } else {
+      $return_array['dsSize'] = '0';
     }
     return $return_array;
   }
