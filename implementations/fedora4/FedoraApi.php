@@ -608,6 +608,21 @@ class Fedora4ApiM extends FedoraApiM {
     if (empty($pid)) {
       $pid = isset($params['pid']) ? $params['pid'] : '';
     }
+    //see if namespace is there
+    $pos = strpos($pid, ':');
+    if ($pos != false) {
+      $namespace = substr($pid, 0, $pos);
+      if($namespace == "islandora")
+      {
+        $url = "http://islandora.ca";
+      }
+      else {
+        $url = "http://islandora.ca".  rand(0, 100).".com";
+      }
+      $this->registerNamespace($namespace, $url);
+    }
+
+      
 // Create the object.
     $request = empty($pid) ? "/fcr:new" : "/$pid";
     if (isset($params['txID'])) {
@@ -668,6 +683,7 @@ class Fedora4ApiM extends FedoraApiM {
   }
 
   public function registerNamespace($prefix, $uri) {
+    $request="/fcr:namespaces";
     $query = "INSERT {<$uri> <http://purl.org/vocab/vann/preferredNamespacePrefix>
       \"$prefix\"} WHERE {}";
     $result = $this->connection->postRequest($request, 'string', $query, 'application/sparql-update', $options);
